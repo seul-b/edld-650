@@ -112,7 +112,6 @@ model3 <- feols(ODR_class ~ eval + run_time + evalXyear | state_id + school_year
 # Keep models 2+3
 # commented out vcov = ~ state_id^school_year as it was said "cells report estimates and associated standard errors clustered at the state level in parentheses." pg 21
 
-# Creating a dataframe to hold the table data
 table_data <- data.frame(
   Variable = c("Implement evaluation", "", "Implement evaluation*Trend", "", 
                "Time Trend", "", "Observations", "R-Squared"),
@@ -120,7 +119,6 @@ table_data <- data.frame(
   Class_II = c("-0.064", "(0.172)", "-0.064", "(0.164)", "0.018", "(0.063)", "470", "0.565")
 )
 
-# Writing the Markdown table
 writeLines(knitr::kable(table_data, format = "markdown", align = c('l', 'r', 'r')))
 
 
