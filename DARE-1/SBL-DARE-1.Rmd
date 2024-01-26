@@ -19,6 +19,7 @@ library(ggplot2)
 library(patchwork)
 library(tidyr)
 library(modelsummary)
+library(stargazer)
 
 dat <- read.csv("https://daviddliebowitz.github.io/edld650/assignments/DARE_1/data/EDLD_650_DARE_1.csv")
 ```
@@ -192,22 +193,18 @@ dat_complete %>%
 C. Replication and Extension
 
 ```{r C1}
-model1 <- feols(ODR_class ~ eval | state_id + school_year, data = dat_complete)
+model1 <- feols(ODR_class ~ eval | state_id + school_year, data = dat_complete, weights = dat_complete$enroll)
 
-model2 <- feols(ODR_class ~ eval*run_time | state_id + school_year, data = dat_complete)
+model2 <- feols(ODR_class ~ eval*run_time | state_id + school_year, data = dat_complete, weights = dat_complete$enroll)
 
 # not significantly different from 0 
 # Keep models 2+3
 # commented out vcov = ~ state_id^school_year as it was said "cells report estimates and associated standard errors clustered at the state level in parentheses." pg 21
+stargazer(model1, model2, type = "text",
+          title = "Comparison of Regression Models",
+          align = TRUE,
+          out = "models_comparison_table.txt")
 
-table_data <- data.frame(
-  Variable = c("Implement evaluation", "", "Implement evaluation*Trend", "", 
-               "Time Trend", "", "Observations", "R-Squared"),
-  Class_I = c("-0.061", "(0.168)", "", "", "", "", "470", "0.566"),
-  Class_II = c("-0.064", "(0.172)", "-0.064", "(0.164)", "0.018", "(0.063)", "470", "0.565")
-)
-
-writeLines(knitr::kable(table_data, format = "markdown", align = c('l', 'r', 'r')))
 ```
 
 C1. Two models were estimated: Model 1 assumes constant effects over time, while Model 2 allows for effects that vary linearly over time. Both models were estimated using Ordinary Least Squares (OLS), with fixed effects for state and school year, and clustered standard errors by state. In Model 1, the estimated effect of evaluation reforms on ODRs is -0.061, but not statistically significant (p-value > 0.05). This suggests that, under the assumption of constant effects, the introduction of higher-stakes teacher evaluation reforms does not significantly affect ODRs. The adjusted R-squared of 0.566 indicates a moderate fit. Model 2, which allows for varying effects over time, shows similar results. The coefficient for the evaluation reform itself (-0.064) and its interaction with time (eval:run_time at -0.064) are not statistically significant. This finding implies that even when allowing for a linear change in effects over time, the reforms do not significantly impact ODRs. The inclusion of run_time and its interaction term does not substantially improve the model fit, as indicated by a similar adjusted R-squared (0.565) to Model 1.
@@ -219,7 +216,8 @@ C2:
 mod_c21_class <- feols(ODR_class ~ eval + class_remove + suspension
                        | state_id + school_year, 
                        vcov = ~state_id,
-                       data = dat_complete)
+                       data = dat_complete,
+                       weights = dat_complete$enroll)
 
 #summary(mod_c21_class)
 
@@ -227,7 +225,8 @@ mod_c21_class <- feols(ODR_class ~ eval + class_remove + suspension
 mod_c22_class <- feols(ODR_class ~ eval
                        | state_id + school_year, 
                        vcov = ~state_id + school_year,
-                       data = dat_complete)
+                       data = dat_complete,
+                       weights = dat_complete$enroll)
 
 #summary(mod_c22_class)
 modelsummary(list("Simultaneous policy" = mod_c21_class, 
