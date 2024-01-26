@@ -6,25 +6,34 @@ output: html_document
 ---
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-library(haven)
+knitr::opts_chunk$set(echo = TRUE,
+                      warning = FALSE,
+                      message = FALSE)
+
+library(flextable)
+library(fixest)
 library(dplyr)
-library(Hmisc)
-library(readr)
 library(ggplot2)
-dat <- read_csv("EDLD_650_DARE_1.csv")
+library(patchwork)
+library(tidyr)
+dat <- read.csv("EDLD_650_DARE_1.csv")
+dat <- read.csv("https://daviddliebowitz.github.io/edld650/assignments/DARE_1/data/EDLD_650_DARE_1.csv")
 ```
 
 A. Data Management Tasks 
 ```{r A1}
-enroll_conv <- grep("^enroll_", names(dat), value = TRUE)
-for (col in enroll_conv) {
-  dat[[paste0(col, "_pct")]] <- (dat[[col]] / dat$enroll) * 100
-}
-
+# convert enroll to percentage
+dat <- dat %>%
+    mutate(across(enroll_OTHER:enroll_WHITE, ~.x/enroll*100))
 ```
 
 ```{r A2}
+# make flags for teacher_eval policy, class_remove policy, suspension policy
+# make run time for time with respect to teacher_eval policy
+# make interaction term for teacher_eval and run_time
+# For states with no policy, the NAs to convert to 0
+# For states with no teacher eval policy, run_time set to -1
+
 dat <- dat |> 
   mutate(eval = ifelse(school_year >= eval_year, 1, 0),
          class_remove = ifelse(school_year >= class_remove_year, 1, 0),
@@ -32,14 +41,18 @@ dat <- dat |>
          run_time = school_year - eval_year,
          run_time = ifelse(is.na(eval_year), -1, run_time),
          across(eval:suspension, ~ifelse(is.na(.x),0, .x)),
-         evalXyear = eval * run_time)
+         evalXyear = eval * run_time,
+         FRPL_percent = FRPL_percent*100) #FRPL is in proportion
 
 
 ```
 
 B. Understanding the Data and Descriptive Statistics
+
 ```{r B1}
-summary(dat) # check missingness 
+# commenting as we don't want to display the output
+# summary(dat) # check missingness 
+
 
 dat_complete <- dat[!is.na(dat$ODR_class) & !is.na(dat$ODR_objective) & 
                     !is.na(dat$ODR_other) & !is.na(dat$ODR_subjective), ]
@@ -48,63 +61,101 @@ dat_complete <- dat[!is.na(dat$ODR_class) & !is.na(dat$ODR_objective) &
 B1. Due to missingness in the implementation year variables, 14% of the observations for `run_time` and `evalXyear` are missing. This missingness concerns us slightly, as these variables are critical to the model. However, because they will be ignored when running the model, we did not remove the missing observations from the dataset. The key type of missingness that we *are* concerned with are the missing observations for office disciplinary referrals (ODRs), since this is our outcome variable. Thus, we removed these 46 missing observations. Our enrollment variables, including race/ethnicity data, were also missing ~9% of all observations, but the missing observations overlapped with all missing observations for ODRs and were thus simultaneously removed.
 
 ```{r B2}
-viz_class <- ggplot(dat_complete, aes(ODR_class)) + geom_histogram(binwidth=1)
-viz_class
-viz_objective <- ggplot(dat_complete, aes(ODR_objective)) + geom_histogram(binwidth=1)
-viz_objective
-viz_other <- ggplot(dat_complete, aes(ODR_other)) + geom_histogram(binwidth=1)
-viz_other
-viz_cobjective <- ggplot(dat_complete, aes(ODR_objective)) + geom_histogram(binwidth=1)
-viz_cobjective
+viz_histogram <- function(outcome, plot_title){
+    viz <- ggplot(dat_complete, aes({{outcome}})) +
+    geom_histogram(bins = 20, fill = "cornflowerblue")+               scale_x_continuous(breaks = 0:10, 
+                       expand = c(0,0)) +
+    scale_y_continuous(expand = c(0,0))+
+    theme_classic(8)+
+    labs(y = "ODR per 500 students",
+         x= "",
+         title = plot_title)
+    
+    return(viz)
+}
+viz_class <- viz_histogram(ODR_class, "Location: Class")
+viz_objective <- viz_histogram(ODR_objective, "Type: Objective")
+viz_other <- viz_histogram(ODR_other, "Location: Other")
+viz_subjective <- viz_histogram(ODR_subjective, "Type: Subjective")
+
+library(patchwork)
+(viz_class + viz_other) / (viz_subjective + viz_objective) +
+    plot_annotation(
+        title = "Distribution of Office Disciplinary Referrals",
+        tag_levels = 'A',
+        tag_suffix = "."
+    ) & 
+  theme(plot.tag.position  = c(.09,.96))
 ```
 
 B2. The distribution for all ODR columns appears to be unimodal but exhibits a pronounced skew. This pattern suggests that most state years have relatively few ODRs, and few state years have very high numbers. To address the skewed distribution, a log transformation or a Box-Cox transformation can be considered to handle skewed data to make the distribution more symmetrical. 
 
 ```{r B3}
-library(dplyr)
-
-# sample -- refer to the paper
-
-calculate_weighted_stats <- function(data, variable) {
-
-  # Group by school_year and calculate total enrollment for each year
-  data <- data |> 
-    group_by(school_year) |> 
-    mutate(year_total_enrollment = sum(enroll, na.rm = T)) |> 
+# create weighted columns
+dat_summ <- dat_complete %>%
+    group_by(school_year) %>%
+    mutate(enroll_year = sum(enroll),
+           across(c(PBIS, FRPL_percent:ODR_objective), ~.x*enroll),
+           across(c(PBIS, FRPL_percent:ODR_objective), ~sum(.x, na.rm = T)/enroll_year)) %>%
     ungroup()
 
-  # Calculate the weighted variable
-  data$weighted_var <- (data[[variable]] * data$enroll) / data$year_total_enrollment
-  
-  # Calculate mean and standard deviation for the weighted variable
-  mean_weighted_var <- mean(data$weighted_var, na.rm = T)
-  sd_weighted_var <- sd(data$weighted_var, na.rm = T)
+      
+dat_summ <- dat_summ %>%
+    # ordering columns
+    select(FRPL_percent, enroll_AM, enroll_ASIAN, enroll_BLACK,
+           enroll_WHITE, PBIS, ODR_class:ODR_objective) %>%
+    # changing PBIS to percentage
+    mutate(PBIS = PBIS*100) %>%
+    summarize(across(everything(), ~paste0(round(mean(.x),2),"\n(", round(sd(.x),2), ")"))) %>%
+    pivot_longer(
+        cols = everything(),
+        names_to = "chr",
+        values_to = "desc"
+    )
 
-  # Return a list with the results
-  return(list(mean = mean_weighted_var, sd = sd_weighted_var))
-}
+state_year <- round(mean(dat_complete$enroll),2)
+year <- dat_complete %>% group_by(school_year) %>% summarize(total_enroll = sum(enroll))
+year <- round(mean(year$total_enroll),2)
+enroll_mean <- data_frame(
+    chr = c("state-year", "year"),
+    desc = c(as.character(state_year), as.character(year))
+)
 
-frpl_stats <- calculate_weighted_stats(dat_complete, "FRPL_percent")
-am_indian_stats <- calculate_weighted_stats(dat_complete, "enroll_AM_pct")
-asian_pi_stats <- calculate_weighted_stats(dat_complete, "enroll_ASIAN_pct")
-black_stats <- calculate_weighted_stats(dat_complete, "enroll_BLACK_pct")
-hispanic_stats <- calculate_weighted_stats(dat_complete, "enroll_HISP_pct")
-white_stats <- calculate_weighted_stats(dat_complete, "enroll_WHITE_pct")
-pbis_stats <- calculate_weighted_stats(dat_complete, "PBIS")
-odr_class_stats <- calculate_weighted_stats(dat_complete, "ODR_class")
-odr_other_stats <- calculate_weighted_stats(dat_complete, "ODR_other")
-odr_subjective_stats <- calculate_weighted_stats(dat_complete, "ODR_subjective")
-odr_objective_stats <- calculate_weighted_stats(dat_complete, "ODR_objective")
+dat_summ <- rbind(enroll_mean, dat_summ)
+dat_summ$chr <- c("Mean state-year enrollment",
+                   "Mean year enrollment",
+                   "% low-income (FRPL)",
+                   "% Am. Indian/Alask. Native",
+                   "% Asian",
+                   "% Black",
+                   "% white",
+                   "% state-year observations in which PBIS was successfully implements",
+                   "Classroom ODR rate",
+                   "Other location ODR rate",
+                   "Subjective-Classroom ODR rate",
+                   "Objectiv-Classroom ODR rate")
+
+dat_summ %>%
+    flextable() %>%
+    set_header_labels(
+  values = list(
+    chr = "Variable",
+    desc = "Mean (sd)")
+) %>%
+    add_header_lines("Table 1. Descriptive statistics of key variables") %>%
+    align(1, 1, align = "left", "header") %>%
+    add_footer_lines("Reported means and standard deviation are weighted by state and year.") %>%
+    autofit()
+
 ```
 
 C. Replication and Extension
 ```{r C1}
 library(fixest)
+
 model1 <- feols(ODR_class ~ eval | state_id + school_year, data = dat_complete)
 
 model2 <- feols(ODR_class ~ eval*run_time | state_id + school_year, data = dat_complete)
-
-model3 <- feols(ODR_class ~ eval + run_time + evalXyear | state_id + school_year, data = dat_complete)
 
 # not significantly different from 0 
 # Keep models 2+3
@@ -126,7 +177,20 @@ Although the estimates are not exactly the same as the models in Liebowitz et al
 
 
 ```{r C2}
+mod_c21_class <- feols(ODR_class ~ eval + class_remove + suspension
+                       | state_id + school_year, 
+                       vcov = ~state_id,
+                       data = dat_complete)
 
+#summary(mod_c21_class)
+
+# robustness check - two-way standard error
+mod_c22_class <- feols(ODR_class ~ eval
+                       | state_id + school_year, 
+                       vcov = ~state_id + school_year,
+                       data = dat_complete)
+
+#summary(mod_c22_class)
 ```
 
 C2.
