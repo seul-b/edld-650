@@ -2,7 +2,9 @@
 title: "DARE-1"
 author: "Seulbi Lee, Havi Khurana, Janette Avelar"
 date: "`r Sys.Date()`"
-output: html_document
+output: 
+    html_document:
+        code_folding: hide
 ---
 
 ```{r setup, include=FALSE}
@@ -16,7 +18,8 @@ library(dplyr)
 library(ggplot2)
 library(patchwork)
 library(tidyr)
-dat <- read.csv("EDLD_650_DARE_1.csv")
+library(modelsummary)
+
 dat <- read.csv("https://daviddliebowitz.github.io/edld650/assignments/DARE_1/data/EDLD_650_DARE_1.csv")
 ```
 
@@ -84,11 +87,12 @@ library(patchwork)
         title = "Distribution of Office Disciplinary Referrals",
         tag_levels = 'A',
         tag_suffix = "."
-    ) & 
-  theme(plot.tag.position  = c(.09,.96))
+    ) 
 ```
 
 B2. The distribution for all ODR columns appears to be unimodal but exhibits a pronounced skew. This pattern suggests that most state years have relatively few ODRs, and few state years have very high numbers. To address the skewed distribution, a log transformation or a Box-Cox transformation can be considered to handle skewed data to make the distribution more symmetrical. 
+
+B3:
 
 ```{r B3}
 # create weighted columns
@@ -145,14 +149,49 @@ dat_summ %>%
     add_header_lines("Table 1. Descriptive statistics of key variables") %>%
     align(1, 1, align = "left", "header") %>%
     add_footer_lines("Reported means and standard deviation are weighted by state and year.") %>%
-    autofit()
+    width(width = 3)
+
+```
+
+B4: Optional 
+
+```{r B4 - optional}
+dat_complete %>%
+    # remove states that didn't implement teacher evaluation and restrict time
+    filter(!is.na(eval_year), run_time %in% c(-6:3)) %>%
+    # find state-run_time weighted averages
+    group_by(run_time) %>%
+    mutate(
+        enroll_run_time = sum(enroll),
+        odr_class = ODR_class*enroll,
+        odr_class = sum(odr_class)/enroll_run_time,
+        odr_sub = ODR_subjective*enroll,
+        odr_sub = sum(odr_sub)/enroll_run_time
+    ) %>%
+    summarize(
+        odr_class = mean(ODR_class, na.rm = T),
+        odr_sub = mean(ODR_subjective, na.rm = T) 
+    ) %>%
+    ggplot()+
+    geom_point(aes(x = run_time, y = odr_class, color = "class")) +
+    geom_line(aes(x = run_time, y = odr_class, color = "class")) +
+    geom_point(aes(x = run_time, y = odr_sub, color = "subjective")) +
+    geom_line(aes(x = run_time, y = odr_sub, color = "subjective")) +
+    ylim(0,3.5) +
+    scale_x_continuous(breaks = c(-6:3))+
+    geom_vline(xintercept = 0, linetype = "dashed", color = "gray")+
+    labs(x = "Time to Eval Policy", 
+         y = "ODR per 500 students", 
+         color = "ODR type",
+         title = "Rate of ODR for States with Teacher Evaluation",
+         caption = "Rates are weighted by state and time to policy.") +
+    theme_classic(8)
 
 ```
 
 C. Replication and Extension
-```{r C1}
-library(fixest)
 
+```{r C1}
 model1 <- feols(ODR_class ~ eval | state_id + school_year, data = dat_complete)
 
 model2 <- feols(ODR_class ~ eval*run_time | state_id + school_year, data = dat_complete)
@@ -175,7 +214,7 @@ C1. Two models were estimated: Model 1 assumes constant effects over time, while
 
 Although the estimates are not exactly the same as the models in Liebowitz et al. (2022), both report the effects of teacher evaluation implementation closer to zero and confidently rule out certain ranges of moderating effects. To ensure the model specifications match those reported in the paper, we may conduct additional robustness checks to see how sensitive the results are to different model specifications or samples. 
 
-
+C2: 
 ```{r C2}
 mod_c21_class <- feols(ODR_class ~ eval + class_remove + suspension
                        | state_id + school_year, 
@@ -191,8 +230,54 @@ mod_c22_class <- feols(ODR_class ~ eval
                        data = dat_complete)
 
 #summary(mod_c22_class)
+modelsummary(list("Simultaneous policy" = mod_c21_class, 
+                  "Two-way clustered SE" = mod_c22_class),
+             estimate = "{estimate} [{conf.low},{conf.high}]",
+             statistic = NULL,
+             coef_rename = c("eval" = "Teacher Evaluation", 
+                             "class_remove" = "Class removal policy", 
+                             "suspension" = "Suspension policy"),
+             gof_omit = "AIC|BIC|Log|R.*",
+             title = "Table 3. Robustness Checks",
+             notes = "Model estimates and 95% Confidence Intervals are presented.")
+
 ```
 
-C2.
 
-C3. In line with the findings from the original study by Liebowitz, Porter, and Bragg (2022), our replication found no causal effects on the overall rate of Office Disciplinary Referrals (ODR) from the implementation of higher-stakes teacher evaluation. There was no evidence that higher-stakes teacher evaluation policies changed teacher behavior in response to students’ misbehavior, even when accounting for the introduction of potentially simultaneous discipline policy reforms or when altering our model specification to account for state-year clustering. Our null findings further support the conclusion that teacher evaluation alone does not improve classroom climate or reduce the rates of exclusionary discipline practices in schools. 
+C3. In line with the findings from the original study by Liebowitz, Porter, and Bragg (2022), our replication found no causal effects on the overall rate of Office Disciplinary Referrals (ODR) from the implementation of higher-stakes teacher evaluation. There was no evidence that higher-stakes teacher evaluation policies changed teacher behavior in response to students’ misbehavior, even when accounting for the introduction of potentially simultaneous discipline policy reforms or when altering our model specification to account for state-year clustering. Our null findings further support the conclusion that teacher evaluation alone does not improve classroom climate or reduce the rates of exclusionary discipline practices in schools.
+
+C4: Optional
+
+```{r C4 - optional}
+mod_c4 <- feols(ODR_class ~ i(run_time, ref = -1) |
+                    state_id + school_year, 
+                vcov = ~state_id,
+                data = dat_complete %>% filter(run_time %in% c(-6:3)))
+
+modelsummary(list("Event-study estimate" = mod_c4),
+             gof_omit = "AIC|BIC|Log|R.*",
+             title = "Table 4. Event-study estimate",
+             notes = "Standard errors are clustered by state.")
+
+iplot(mod_c4)
+```
+
+C5 - Optional 
+
+```{r C5 - optional}
+mod_c5 <- feols(ODR_class ~ eval*PBIS |
+                    state_id + school_year,  
+                vcov = ~state_id,
+                data = dat_complete)
+
+modelsummary(list("Moderation by PBIS implementation" = mod_c5),
+             estimate = "{estimate} [{conf.low},{conf.high}]",
+             statistic = NULL,
+             coef_rename = c("eval" = "Teacher Evaluation", 
+                             "PBIS" = "PBIS implementation fidelity", 
+                             "eval*PBIS" = "Teacher Evaluation*PBIS"),
+             gof_omit = "AIC|BIC|Log|R.*",
+             title = "Table 5. Moderating Effect of PBIS implementation fidelity on ODRs",
+             notes = "Model estimates and 95% Confidence Intervals are presented.")
+```
+
