@@ -26,8 +26,10 @@ dat <- read.csv("https://daviddliebowitz.github.io/edld650/assignments/DARE_1/da
 A. Data Management Tasks 
 ```{r A1}
 # convert enroll to percentage
-dat <- dat %>%
-    mutate(across(enroll_OTHER:enroll_WHITE, ~.x/enroll*100))
+enroll_conv <- grep("^enroll_", names(dat), value = TRUE)
+for (col in enroll_conv) {
+  dat[[col]] <- (dat[[col]] / dat$enroll) * 100
+}
 ```
 
 ```{r A2}
@@ -84,7 +86,7 @@ viz_subjective <- viz_histogram(ODR_subjective, "Type: Subjective")
 library(patchwork)
 (viz_class + viz_other) / (viz_subjective + viz_objective) +
     plot_annotation(
-        title = "Distribution of Office Disciplinary Referrals",
+        title = "Fig 1. Distribution of Office Disciplinary Referrals",
         tag_levels = 'A',
         tag_suffix = "."
     ) 
@@ -107,7 +109,7 @@ dat_summ <- dat_complete %>%
 dat_summ <- dat_summ %>%
     # ordering columns
     select(FRPL_percent, enroll_AM, enroll_ASIAN, enroll_BLACK,
-           enroll_WHITE, PBIS, ODR_class:ODR_objective) %>%
+           enroll_HISP, enroll_WHITE, PBIS, ODR_class:ODR_objective) %>%
     # changing PBIS to percentage
     mutate(PBIS = PBIS*100) %>%
     summarize(across(everything(), ~paste0(round(mean(.x),2),"\n(", round(sd(.x),2), ")"))) %>%
@@ -132,8 +134,9 @@ dat_summ$chr <- c("Mean state-year enrollment",
                    "% Am. Indian/Alask. Native",
                    "% Asian",
                    "% Black",
-                   "% white",
-                   "% state-year observations in which PBIS was successfully implements",
+                   "% Hispanic",
+                   "% White",
+                   "% State-year observations in which PBIS was successfully implements",
                    "Classroom ODR rate",
                    "Other location ODR rate",
                    "Subjective-Classroom ODR rate",
@@ -157,17 +160,20 @@ B4: Optional
 
 ```{r B4 - optional}
 dat_complete %>%
+    # find state-year weighted averages
+    group_by(school_year) %>%
+    mutate(
+        enroll_year = sum(enroll),
+        odr_class = ODR_class*enroll,
+        odr_class = sum(odr_class)/enroll_year,
+        odr_sub = ODR_subjective*enroll,
+        odr_sub = sum(odr_sub)/enroll_year
+    ) %>%
+    ungroup() %>%
     # remove states that didn't implement teacher evaluation and restrict time
     filter(!is.na(eval_year), run_time %in% c(-6:3)) %>%
-    # find state-run_time weighted averages
+    # mean at run-time
     group_by(run_time) %>%
-    mutate(
-        enroll_run_time = sum(enroll),
-        odr_class = ODR_class*enroll,
-        odr_class = sum(odr_class)/enroll_run_time,
-        odr_sub = ODR_subjective*enroll,
-        odr_sub = sum(odr_sub)/enroll_run_time
-    ) %>%
     summarize(
         odr_class = mean(ODR_class, na.rm = T),
         odr_sub = mean(ODR_subjective, na.rm = T) 
@@ -181,11 +187,11 @@ dat_complete %>%
     scale_x_continuous(breaks = c(-6:3))+
     geom_vline(xintercept = 0, linetype = "dashed", color = "gray")+
     labs(x = "Time to Eval Policy", 
-         y = "ODR per 500 students", 
+         y = "Mean ODR per 500 students", 
          color = "ODR type",
-         title = "Rate of ODR for States with Teacher Evaluation",
-         caption = "Rates are weighted by state and time to policy.") +
-    theme_classic(8)
+         title = "Fig 2. Rate of ODR for States with Teacher Evaluation",
+         caption = "Rates are weighted by state and year.") +
+    theme_classic(12)
 
 ```
 
@@ -250,16 +256,19 @@ C4: Optional
 
 ```{r C4 - optional}
 mod_c4 <- feols(ODR_class ~ i(run_time, ref = -1) |
-                    state_id + school_year, 
+                    state_id, 
                 vcov = ~state_id,
                 data = dat_complete %>% filter(run_time %in% c(-6:3)))
 
-modelsummary(list("Event-study estimate" = mod_c4),
-             gof_omit = "AIC|BIC|Log|R.*",
-             title = "Table 4. Event-study estimate",
-             notes = "Standard errors are clustered by state.")
+# modelsummary(list("Event-study estimate" = mod_c4),
+#              gof_omit = "AIC|BIC|Log|R.*",
+#              title = "Table 4. Event-study estimate",
+#              notes = "Standard errors are clustered by state.")
 
-iplot(mod_c4)
+iplot(mod_c4,
+      main = "Fig 3. Effect on ODR in classroom",
+      pt.join = FALSE,
+      xlab = "Time to policy")
 ```
 
 C5 - Optional 
@@ -277,7 +286,7 @@ modelsummary(list("Moderation by PBIS implementation" = mod_c5),
                              "PBIS" = "PBIS implementation fidelity", 
                              "eval*PBIS" = "Teacher Evaluation*PBIS"),
              gof_omit = "AIC|BIC|Log|R.*",
-             title = "Table 5. Moderating Effect of PBIS implementation fidelity on ODRs",
+             title = "Table 4. Moderating Effect of PBIS implementation fidelity on ODRs",
              notes = "Model estimates and 95% Confidence Intervals are presented.")
 ```
 
