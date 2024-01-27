@@ -3,8 +3,14 @@ title: "DARE-1"
 author: "Seulbi Lee, Havi Khurana, Janette Avelar"
 date: "`r Sys.Date()`"
 output: 
-    html_document:
-        code_folding: hide
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+    highlight: tango
+    code_folding: hide
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -24,7 +30,8 @@ library(stargazer)
 dat <- read.csv("https://daviddliebowitz.github.io/edld650/assignments/DARE_1/data/EDLD_650_DARE_1.csv")
 ```
 
-A. Data Management Tasks 
+### A. Data Management Tasks 
+
 ```{r A1}
 # convert enroll to percentage
 dat <- dat %>%
@@ -51,18 +58,15 @@ dat <- dat |>
 
 ```
 
-B. Understanding the Data and Descriptive Statistics
+### B. Understanding the Data and Descriptive Statistics
 
 ```{r B1}
-# commenting as we don't want to display the output
-# summary(dat) # check missingness 
-
-
+# summary(dat)
 dat_complete <- dat[!is.na(dat$ODR_class) & !is.na(dat$ODR_objective) & 
                     !is.na(dat$ODR_other) & !is.na(dat$ODR_subjective), ]
 ```
 
-B1. Due to missingness in the implementation year variables, 14% of the observations for `run_time` and `evalXyear` are missing. This missingness concerns us slightly, as these variables are critical to the model. However, because they will be ignored when running the model, we did not remove the missing observations from the dataset and set their run_time to -1. The key type of missingness that we *are* concerned with are the missing observations for office disciplinary referrals (ODRs), since this is our outcome variable. Thus, we removed these 46 missing observations. Our enrollment variables, including race/ethnicity data, were also missing ~9% of all observations, but the missing observations overlapped with all missing observations for ODRs and were thus simultaneously removed.
+**B1.** Due to missingness in the implementation year variables, 14% of the observations for `run_time` and `evalXyear` are missing. This missingness concerns us slightly, as these variables are critical to the model. However, because they will be ignored when running the model, we did not remove the missing observations from the dataset and set their `run_time` to -1. The key type of missingness that we *are* concerned with are the missing observations for office disciplinary referrals (ODRs), since this is our outcome variable. Thus, we removed these 46 missing observations. Our enrollment variables, including race/ethnicity data, were also missing ~9% of all observations, but the missing observations overlapped with all missing observations for ODRs and were thus simultaneously removed.
 
 ```{r B2}
 viz_histogram <- function(outcome, plot_title){
@@ -90,11 +94,13 @@ viz_subjective <- viz_histogram(ODR_subjective, "Type: Subjective")
     ) 
 ```
 
-B2. The distribution for all referrals by location and type appears to be unimodal but exhibits a right skew. This pattern suggests that most state years have relatively few ODRs, and few state years have very high numbers. To address the skewed distribution, a log transformation or a Box-Cox transformation can be considered to handle skewed data to make the distribution more symmetrical. 
+**B2.** The distribution for all referrals by location and type appears to be unimodal but exhibits a right skew. This pattern suggests that most state years have relatively few ODRs, and few state years have very high numbers. To address the skewed distribution, a log transformation or a Box-Cox transformation can be considered to handle skewed data to make the distribution more symmetrical. 
 
-B3: The analytical sample is drawn from public schools that were in states which implemented teacher evaluation policy during 2006-07 to 2017-18, those who used the Positive Behavior Implementation and Supports (PBIS) framework to track their students’ behavior using the School-Wide Information System (SWIS), and those who agreed to share their data for research. In the narrowest sense, the results of the analysis are generalizable to such public schools. In its widest sense, the results are generalizable to schools that have behavior interventions similar to PBIS and those who track their students’ behavior data. 
+
+**B3.** The analytical sample is drawn from public schools that were in states which implemented teacher evaluation policy during 2006-07 to 2017-18, those who used the Positive Behavior Implementation and Supports (PBIS) framework to track their students’ behavior using the School-Wide Information System (SWIS), and those who agreed to share their data for research. In the narrowest sense, the results of the analysis are generalizable to such public schools. In its widest sense, the results are generalizable to schools that have behavior interventions similar to PBIS and those who track their students’ behavior data. 
 
 In Table 1, we present the descriptive statistics of the demographic and outcome variables. On average, there are 21,897 students in a given state and year in our sample. About 54% of the students qualified for free and reduced price lunch. By racial and ethnic identities, 54% of the students identified as White followed by 18% identifying as Hispanic, 13% identifying as Black, and 5% students identified as Asian. A small percentage of students identified as American Indian/Alaskan Native and other ethnicities.  72% of the school-year observations had schools that successfully implemented PBIS. On average, 1.39 ODRs (1.33 ODRs) originated in classroom (other) settings per day per 500 students. The mean ODRs for subjective (objective) disciplinary behavior per day per 500 students was 0.87 (0.53). The mean of the sample characteristics are only slightly different from the ones reported in Liebowitz, Porter & Bragg (2022) with a magnitude difference of 2-3 percentage points. However, the standard deviations are remarkably smaller probably because our data is aggregated at state-year level. The means of the outcome variables is also only slightly different but the weighted standard deviations are smaller. We don’t anticipate much difference in the main results given the similarity in the mean of the variables. 
+
 
 ```{r B3}
 # create weighted columns
@@ -156,7 +162,7 @@ dat_summ %>%
 
 ```
 
-B4: Figure 2 presents the mean ODRs plotted again time to teacher evaluation polcicy. The trend seems relatively flatter with little discontinuity at the 0 time-point. However, there does appear a little drop in the mean ODRs in year 2 and 3 after the policy implementation. Since teacher evaluation policy followed staggered implementations, there may only be a few states that are contributing to the 2 and 3 year post policy averages. Therefore, we would like to plot average ODRs after controlling for state and year fixed effects. Here, we only plotted ODRs for states that implemented the policy as the time to policy evaluation isn’t defined for states that have not yet implemented the policy. Though for the purpose of the analysis, we set the run_time as -1 for these states, adding them to average for the -1 time point would bias the point estimate. 
+**B4.** Figure 2 presents the mean ODRs plotted against time to teacher evaluation policy. The trend seems relatively flatter with little discontinuity at the 0 time-point. However, there does appear to be a small drop in the mean ODRs in year 2 and 3 after the policy implementation. Since teacher evaluation policy followed staggered implementations, there may only be a few states that are contributing to the 2- and 3-year post-policy averages. Therefore, we would like to plot average ODRs after controlling for state and year fixed effects. Here, we only plotted ODRs for states that implemented the policy as the time to policy evaluation isn’t defined for states that have not yet implemented the policy. Though, for the purpose of the analysis we set the run_time as -1 for these states, adding them to the average for the -1 time point would bias the point estimate. 
 
 ```{r B4 - optional}
 dat_complete %>%
@@ -192,7 +198,7 @@ dat_complete %>%
 
 ```
 
-C. Replication and Extension
+### C. Replication and Extension
 
 ```{r C1}
 model1 <- feols(ODR_class ~ eval | state_id + school_year, data = dat_complete, weights = dat_complete$enroll)
@@ -212,7 +218,8 @@ modelsummary(list("Constant effect" = model1, "Linear effect" = model2),
 
 ```
 
-C1. Two unconditional models were estimated: Model 1 assumes constant effects over time, while Model 2 allows for effects that vary linearly over time. Both models were estimated using Ordinary Least Squares (OLS), with fixed effects for state and school year, and clustered standard errors by state. In Model 1, the estimated effect of evaluation reforms on ODRs is -0.061, but not statistically significant (p-value > 0.05). This suggests that, under the assumption of constant effects, the introduction of higher-stakes teacher evaluation reforms does not significantly affect ODRs. The adjusted R-squared of 0.566 indicates a moderate fit. Model 2, which allows for varying effects over time, shows similar results. The coefficient for the evaluation reform itself (-0.064) and its interaction with time (eval:run_time at -0.064) are not statistically significant. This finding implies that even when allowing for a linear change in effects over time, the reforms do not significantly impact ODRs. The inclusion of run_time and its interaction term does not substantially improve the model fit, as indicated by a similar adjusted R-squared (0.565) to Model 1.
+
+**C1.** Two unconditional models were estimated: Model 1 assumes constant effects over time, while Model 2 allows for effects that vary linearly over time. Both models were estimated using Ordinary Least Squares (OLS), with fixed effects for state and school year, and clustered standard errors by state. In Model 1, the estimated effect of evaluation reforms on ODRs is -0.061, but not statistically significant (p-value > 0.05). This suggests that, under the assumption of constant effects, the introduction of higher-stakes teacher evaluation reforms does not significantly affect ODRs. The adjusted R-squared of 0.566 indicates a moderate fit. Model 2, which allows for varying effects over time, shows similar results. The coefficient for the evaluation reform itself (-0.064) and its interaction with time (`eval:run_time` at -0.064) are not statistically significant. This finding implies that even when allowing for a linear change in effects over time, the reforms do not significantly impact ODRs. The inclusion of `run_time` and its interaction term does not substantially improve the model fit, as indicated by a similar adjusted R-squared (0.565) to Model 1.
 
 Although the estimates are not exactly the same as the models in Liebowitz et al. (2022), both report the effects of teacher evaluation implementation closer to zero and confidently rule out certain ranges of moderating effects. To ensure the model specifications match those reported in the paper, we may conduct additional robustness checks to see how sensitive the results are to different model specifications or samples. 
 
@@ -246,10 +253,10 @@ modelsummary(list("Simultaneous policy" = mod_c21_class,
 
 ```
 
-C2: We ran two robustness checks, which are presented in Table 3. If other discipline reforms were contemporaneous with teacher evaluation reforms, our estimates would be biased and incorrectly attribute the effect. When adding indicator variables to account for other reforms, such as suspension and class removal reforms, we find that other reforms don’t predict any changes in the rates of ODRs in class or moderate the effect of teacher evaluation. In our second test, we accounted for two-way clustered standard errors at the state and year levels. Since there is auto-correlation in the panel dataset, not choosing the correct structure to account for the variance can bias our estimates. When we used two-way clustered standard errors, however, our main result held. 
+**C2.** We ran two robustness checks, which are presented in Table 3. If other discipline reforms were contemporaneous with teacher evaluation reforms, our estimates would be biased and incorrectly attribute the effect. When adding indicator variables to account for other reforms, such as suspension and class removal reforms, we find that other reforms don’t predict any changes in the rates of ODRs in class or moderate the effect of teacher evaluation. In our second test, we accounted for two-way clustered standard errors at the state and year levels. Since there is auto-correlation in the panel dataset, not choosing the correct structure to account for the variance can bias our estimates. When we used two-way clustered standard errors, however, our main result held. 
 
 
-C3. In line with the findings from the original study by Liebowitz, Porter, and Bragg (2022), our replication found no causal effects on the overall rate of Office Disciplinary Referrals (ODR) from the implementation of higher-stakes teacher evaluation. There was no evidence that higher-stakes teacher evaluation policies changed teacher behavior in response to students’ misbehavior, even when accounting for the introduction of potentially simultaneous discipline policy reforms or when altering our model specification to account for state-year clustering. Our null findings further support the conclusion that teacher evaluation alone does not improve classroom climate or reduce the rates of exclusionary discipline practices in schools.
+**C3.** In line with the findings from the original study by Liebowitz, Porter, and Bragg (2022), our replication found no causal effects on the overall rate of Office Disciplinary Referrals (ODR) from the implementation of higher-stakes teacher evaluation. There was no evidence that higher-stakes teacher evaluation policies changed teacher behavior in response to students’ misbehavior, even when accounting for the introduction of potentially simultaneous discipline policy reforms or when altering our model specification to account for state-year clustering. Our null findings further support the conclusion that teacher evaluation alone does not improve classroom climate or reduce the rates of exclusionary discipline practices in schools.
 
 
 ```{r C4 - optional}
@@ -270,8 +277,7 @@ iplot(mod_c4,
       xlab = "Time to policy")
 ```
 
-C4. Similar to the main paper, we found no evidence regarding the changes in rates of ODRs after the implementation of higher-stake teacher evaluation policy. For all time-points, our 95% CI around the time includes the zero point and is not significantly different from zero except at time-point 2. Compared to the paper, the standard errors around all point estimates are relatively wider. It may be because the paper includes covariates that makes the estimates more precise.
-
+**C4.** Similar to the main paper, we found no evidence regarding the changes in rates of ODRs after the implementation of higher-stake teacher evaluation policy. For all time-points, our 95% CI around the time includes the zero point and is not significantly different from zero except at time-point 2. Compared to the paper, the standard errors around all point estimates are relatively wider. It may be because the paper includes covariates that makes the estimates more precise.
 
 ```{r C5 - optional}
 mod_c5 <- feols(ODR_class ~ eval*PBIS |
@@ -292,4 +298,4 @@ modelsummary(list("Moderation by PBIS implementation" = mod_c5),
 
 ```
 
-C5. We ran a moderation analysis to estimate whether states in which schools successfully implemented PBIS had a differential impact on the rates of ODR after the evaluation policy. Our estimates are presented in Table 5, and we find no significant moderating effect of PBIS, on average. The confidence intervals around point estimates are relatively large, which could be made more precise after adding relevant covariates.
+**C5.** We ran a moderation analysis to estimate whether states in which schools successfully implemented PBIS had a differential impact on the rates of ODR after the evaluation policy. Our estimates are presented in Table 5, and we find no significant moderating effect of PBIS, on average. The confidence intervals around point estimates are relatively large, which could be made more precise after adding relevant covariates.
