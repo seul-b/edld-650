@@ -1,5 +1,5 @@
 ---
-title: "DARE-1"
+title: "DARE-2"
 author: "Seulbi Lee, Havi Khurana, Janette Avelar"
 date: "`r Sys.Date()`"
 output: 
@@ -21,6 +21,26 @@ library(haven)
 dat <- read_dta("DARE-2/EDLD_650_CA_schools_es.dta")
 ```
 
-### A. Data Management Tasks 
+### A. Assumption tests
 
-### B. Understanding the Data and Descriptive Statistics
+```{r A2, include=FALSE}
+
+```
+
+```{r A1, include=FALSE}
+
+```
+
+### B. Replication and Extension
+```{r B1, include=FALSE}
+
+```
+
+```{r B2, include=FALSE}
+
+```
+
+```{r B3, include=FALSE}
+
+```
+
