@@ -17,30 +17,94 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE,
                       warning = FALSE,
                       message = FALSE)
-library(haven)
+library(pacman)
+p_load(here, tidyverse, DT, ggplot2, xaringan, knitr, kableExtra, modelsummary, stargazer, xaringanthemer, gganimate, ggthemes, fixest, haven)
 dat <- read_dta("DARE-2/EDLD_650_CA_schools_es.dta")
 ```
 
 ### A. Assumption tests
 
-```{r A2, include=FALSE}
+**A1.** The following figure (Figure 1) shows the effect of the Academic Performance Index (API) of an individual school in 2003 on textbook funding allocation through Williams settlement funding in 2005. In the graph, the vertical dotted line represents the cutoff score for eligibility, as determined at each school level. As expected, there is a sharp change at the cutoff, with schools below the API cutoff receiving textbook funding in 2005.
 
+**Figure 1**
+```{r }
+dat %>% 
+  ggplot() +
+  geom_jitter(aes(api_rank, receive_williams), 
+              color = "gray", alpha = 0.4, shape = 16) + 
+  geom_line(aes(api_rank, ind), 
+            color = "red", linetype = "dashed", size = 1.5) +
+  theme_pander(base_size = 15) + 
+  labs(x = "API rank in 2003",
+       y = "Williams recipient in 2005")
 ```
 
-```{r A1, include=FALSE}
+**A2.** In Figure 2, we examine potential bunching around the forcing variable to determine whether schools just above the cutoff point may have attempted to receive an API score that would have made them eligible to receive additional funding. Here, we have limited our sample using Holden's bandwidth of 19.099, observing a total of 1,947 schools. The distribution of schools are smooth through the cutoff. Coupled with the decision to use API scores from the year prior to announcing and implementing funding, we argue that there is enough evidence against the possibility of nonrandom sorting.
 
+**Figure 2**
+```{r }
+#first examine bunching
+dat %>% 
+  mutate(subset = case_when(
+    api_rank >= 643 - 19.099 ~ 1, #Holden's bandwidth
+    api_rank <= 643 + 19.099 ~ 1,
+    TRUE ~ 0
+  )) %>% 
+  filter(subset == 1) %>% 
+  ggplot() +
+  geom_histogram(aes(api_rank), 
+                 fill = "cornflowerblue", binwidth = 1)  +
+  geom_vline(xintercept = 643, 
+             color = "red", 
+             size = .5) +       
+  theme_pander(base_size = 15) + 
+  labs(x = "API rank in 2003 relative to Williams' cutoff")
 ```
 
 ### B. Replication and Extension
-```{r B1, include=FALSE}
 
+**B1.** An initial visual inspection of our data indicates that the receipt of additional funds for textbooks improved test score outcomes for elementary students in California. For the following graph (Figure 4), we retained Holden's bandwidth of +/- 19.099. Using this bandwidth, we observed a positive linear trend associated with the additional funding.
+
+**Figure 4**
+```{r }
+dat %>% 
+  group_by(api_rank) %>% 
+  summarise(across(c("average_score", "ind"), mean)) %>% 
+  mutate(low = ifelse(api_rank <= 643, "Received funding", "Did not receive funding")) %>% 
+  ggplot(aes(api_rank, average_score, color = low)) +
+  geom_point(alpha = 0.8, shape = 16) +
+  geom_smooth(method = "lm", se = FALSE) +
+  geom_vline(xintercept = 643, color = "red", size = .5) +
+  theme_pander(base_size = 18) +
+  theme(legend.position="none") +
+  labs(x = "API in 2003 relative to cutoff",
+       y = "Average math/reading score",
+       color = "Condition")
 ```
 
-```{r B2, include=FALSE}
+**B2.** 
 
+**Table 1**
+```{r }
+bin <- dat %>% 
+  mutate(group = ceiling((api_rank - 543) / 3)) %>%
+  group_by(group) %>% 
+  mutate(across(c("average_score", "ind"), mean))
+
+linear_const <- lm(average_score ~ api_rank + I(api_rank > 643), bin)
+linear_diff <- lm(average_score ~ api_rank * I(api_rank > 643), bin)
+quadratic <- lm(average_score ~ poly(api_rank,2) + I(api_rank > 643), bin)
+
+modelsummary(list(linear_const, linear_diff, quadratic), 
+             stars=T,
+             coef_rename = c("(Intercept)" = "Intercept", 
+                             "api_rank" = "Academic Performance", 
+                             "I(api_rank > 643)TRUE" = "Intended Award",
+                             "api_rank:I(api_rank > 643)TRUE" = "Score x Award", 
+                             "poly(api_rank, 2)1" = "Intended Award", 
+                             "poly(api_rank, 2)2" = "(Intended Award)^2"),
+             gof_omit = "Adj|Pseudo|Log|Within|AIC|BIC|FE|Std|F"
+            )
 ```
 
-```{r B3, include=FALSE}
-
-```
-
+**B3.**
