@@ -17,56 +17,274 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE,
                       warning = FALSE,
                       message = FALSE)
-library(pacman)
-p_load(here, tidyverse, DT, ggplot2, xaringan, knitr, kableExtra, modelsummary, stargazer, xaringanthemer, gganimate, ggthemes, fixest, haven)
-dat <- read_dta(here("DARE-2", "EDLD_650_CA_schools_es.dta"))
+library(dplyr)
+library(ggplot2)
+library(patchwork)
+library(fixest)
+library(modelsummary)
+
+# read data
+dat <- haven::read_dta("https://daviddliebowitz.github.io/edld650/assignments/DARE_2/data/EDLD_650_CA_schools_es.dta")
+```
+
+```{r}
+# Make bins
+# For each bin created, it uses the gsub function to extract the lower bound of the bin. The regular expression pattern (.*)(,)(.*) is used to find and capture the characters before the comma, which represents the lower bound of the interval, and replaces the whole string with just this captured group (indicated by \\1).
+
+# api_val_5 is recalculated by parsing the lower bound of each bin to a numeric value using parse_number and then adding 2.5. This calculates the midpoint of each 5-unit interval.
+
+dat <- dat |> 
+    mutate(api_bin_5 = cut(norm, 
+                         breaks = seq(-100, 100, 5)),
+           api_val_5 = gsub("(.*)(,)(.*)","\\1", api_bin_5),
+           api_val_5 = readr::parse_number(api_val_5) + 2.5,
+           api_bin_3 = cut(norm, 
+                           breaks = seq(-99, 99, 3)),
+           api_val_3 = gsub("(.*)(,)(.*)","\\1", api_bin_3),
+           api_val_3 = readr::parse_number(api_val_3) + 1.5)
+
+```
+
+```{r graphing colors, include=FALSE}
+# Define graphing colors
+red_pink <- "#e64173"
+turquoise <- "#20B2AA"
+orange <- "#FFA500"
+red <- "#fb6107"
+blue <- "#3b3b9a"
+green <- "#8bb174"
+grey_light <- "grey70"
+grey_mid <- "grey50"
+grey_dark <- "grey20"
+purple <- "#6A5ACD"
+slate <- "#314f4f"
 ```
 
 ### A. Assumption tests
 
-**A1.** The following figure (Figure 1) shows the effect of the Academic Performance Index (API) of an individual school in 2003 on textbook funding allocation through Williams settlement funding in 2005. In the graph, the vertical dotted line represents the cutoff score for eligibility, as determined at each school level. As expected, there is a sharp change at the cutoff, with schools below the API cutoff receiving textbook funding in 2005.
 
-**Figure 1**
+**A1.** Figure 1 shows receiving Williams Settlement textbook funding in 2005 as a function of Academic Performance Index (API) rank in 2003, centered at the threshold of 643. In the graph, the vertical dotted line represents the cutoff score for eligibility, as determined at each school level. All elementary schools, except one, with an API rank of less than or equal to 643 received textbook funds whereas no school with an API rank of more than 643 received funds. As expected, there is a sharp change at the cutoff, with schools below the API cutoff receiving textbook funding in 2005. Thus, API score is a forcing variable for receiving textbook funding with one sharp point of discontinuity.
+
+
+
 ```{r }
-dat %>% 
-  ggplot() +
-  geom_jitter(aes(api_rank, receive_williams), 
-              color = "gray", alpha = 0.4, shape = 16) + 
-  geom_line(aes(api_rank, ind), 
-            color = "red", linetype = "dashed", size = 1.5) +
-  theme_pander(base_size = 15) + 
-  labs(x = "API rank in 2003",
-       y = "Williams recipient in 2005")
+# Figure without binning
+# dat %>% 
+#   ggplot() +
+#   geom_jitter(aes(api_rank, receive_williams), 
+#               color = "gray", alpha = 0.4, shape = 16) + 
+#   geom_line(aes(api_rank, ind), 
+#             color = "red", linetype = "dashed", size = 1.5) +
+#   theme_pander(base_size = 15) + 
+#   labs(x = "API rank in 2003",
+#        y = "Williams recipient in 2005",
+#        title = "Receiving Funds vs API score",
+#        subtitle = "Without binning")
 ```
 
-**A2.** In Figure 2, we examine potential bunching around the forcing variable to determine whether schools just above the cutoff point may have attempted to receive an API score that would have made them eligible to receive additional funding. Here, we have limited our sample using Holden's bandwidth of 19.099, observing a total of 1,947 schools. The distribution of schools is smooth through the cutoff. Coupled with the decision to use API scores from the year prior to announcing and implementing funding, we argue that there is enough evidence against the possibility of nonrandom sorting.
+```{r}
+#Figure 1 - forcing variable and treatment
 
-**Figure 2**
+fig_a1 <- dat %>%
+    filter(year == "2005") %>%
+    group_by(api_bin_5) %>%
+    mutate(receive_williams = mean(receive_williams, na.rm = T)) %>%
+    dplyr::select(api_bin_5, api_val_5, receive_williams) %>%
+    unique() %>%
+    filter(!is.na(api_bin_5)) %>%
+    ggplot() +
+    geom_point(aes(x = api_val_5, y = receive_williams)) +
+    geom_vline(xintercept = 0, linetype = "dotted", color = red) +
+    labs(x = "API in 2003",
+         y = "Receipt of funding",
+         title = "Figure 1: School-level assignment of IMWC textbook funding in 2005",
+         caption = stringr::str_wrap("Note: The plot shows Williams Settlement textbook funding as a function of API score in 2003 normalized to zero at the threshold of 643.\nSchools are averaged into five API score bins.")
+         )+
+    theme_classic(10)
+
+fig_a1
+```
+
+**A2.** One of the identifying assumptions of a regression discontinuity design is that there is no non-random sorting into treatment groups and that the counterfactual is equal in expectation to the treatment group around the discontinuity. To examine whether schools manipulated their 2003 API score in order to get eligible for Williams fund, we inspected a few different trends in the data.
+
+In Figure 2a, we examine potential bunching around the forcing variable to determine whether schools just above the cutoff point may have attempted to receive an API score that would have made them eligible to receive additional funding. Here, we have limited our sample using Holden's bandwidth of 19.099, observing a total of 1,947 schools. Figure 2b extends figures 2a and plots the average number of schools in API bin scores of 3 across the entire sample. The distribution of schools is smooth through the cutoff. In Figure 2C, similar to the Holden's analysis, we plotted predicted scores obtained from regressing pre-treatment scores on observable school characteristics in 2003 against the API scores. Here as well, we find a smooth trend around the cut-off. Lastly, in Figure 3, we show a series of plots on average (weighted by school enrollment) school-level observable characteristics as a function of API score. There is a smooth trend around the discontinuity. Coupled with the decision to use API scores from the year prior to announcing and implementing funding, we argue that there is enough evidence against the possibility of nonrandom sorting. However, we can only compare balance across observable characteristics and can't test whether there are unobservable dimensions across which the counterfactual and treatment groups systematically differ.
+
+
 ```{r }
-#first examine bunching
-dat %>% 
-  mutate(subset = case_when(
-    api_rank >= 643 - 19.099 ~ 1, #Holden's bandwidth
-    api_rank <= 643 + 19.099 ~ 1,
-    TRUE ~ 0
-  )) %>% 
-  filter(subset == 1) %>% 
+fig_a2_1a <- ggplot(data = dat, aes(x = api_rank)) +
+  geom_histogram(fill = blue, binwidth = 1) +
+  geom_vline(
+    xintercept = 643,
+    color = slate,
+    size = 1,
+    alpha = 0.5
+  ) +
+  geom_vline(
+    xintercept = 643 + 19.099,
+    color = red,
+    size = 0.7,
+    alpha = 0.5
+  ) +
+  geom_vline(
+    xintercept = 643 - 19.099,
+    color = red,
+    size = 0.7,
+    alpha = 0.5
+  ) +
+  theme_minimal(base_size = 18) +
+  labs(x = "API in 2003 relative to cutoff",
+       y = "Number of schools",
+       title = "Figure 2A. Distribution of schools") +
+  theme_minimal()
+
+fig_a2_1a
+```
+
+```{r}
+fig_a2_1b <- dat %>%
+    filter(year == "2003") %>%
+    group_by(api_bin_3, api_val_3) %>%
+    summarise(n_school = n()) %>%
+    ggplot()+
+    geom_point(aes(x = api_val_3, y = n_school))+
+    geom_vline(xintercept = 0, linetype = "dotted", color = red) +
+    labs(x = "API in 2003",
+         y = "Number of Schols",
+         title = "Figure 2B: Distribtion of Schools",
+         caption = stringr::str_wrap("Note: The plot shows number of schools in an API score bandwidth of 3 points in 2003. API score in 2003 normalized to zero at the threshold of 643.")
+         )+
+    theme_classic(10)
+
+fig_a2_1b
+```
+
+```{r}
+dat_a2_1c <- dat  |>
+  filter(year == "2003")
+
+pt_score_model <-
+  feols(
+    average_score ~ pct_ai + pct_as + pct_pi + pct_fi + pct_hi + pct_aa + pct_wh + pct_other + percentfrl + classsize + yrs_teach + yrs_dist + total,
+    data = dat_a2_1c
+  )
+
+# saving the predict in a new column
+dat_a2_1c$predict <- predict(pt_score_model)
+
+# plot predicted vs api_bin
+fig_a2_1c <- dat_a2_1c  |>
+  group_by(api_bin_3, api_val_3)  |>
+  mutate(predict = mean(predict, na.rm = T))  |>
+  dplyr::select(api_bin_3, api_val_3, predict)  |>
+  unique()  |>
+  filter(!is.na(api_bin_3))  |>
   ggplot() +
-  geom_histogram(aes(api_rank), 
-                 fill = "cornflowerblue", 
-                 binwidth = 1)  +
-  geom_vline(xintercept = 643, 
-             color = "red", 
-             linewidth = .5) +       
-  theme_pander(base_size = 15) + 
-  labs(x = "API rank in 2003 relative to Williams' cutoff")
+  geom_point(aes(x = api_val_3, y = predict)) +
+  geom_vline(xintercept = 0,
+             linetype = "dotted",
+             color = red) +
+  labs(x = "API in 2003 relative to cutoff",
+       y = "Predicted test score",
+       title = "Figure 2C. Predicted scores using school characteristics",
+       caption = stringr::str_wrap("Note: The plot shows predicted test scores of schools in 2003 based on observable characteristics vs the API score bandwidth of 3 points in 2003. API score in 2003 normalized to zero at the threshold of 643.")) +
+  theme_minimal()
+
+fig_a2_1c
+
+```
+
+```{r}
+# observables just above and below the threshold
+
+fig_a2_data <- dat %>%
+    filter(year == "2003") %>%
+    group_by(api_bin_5) %>%
+    mutate(
+        across(
+            c(yrs_teach:percentfrl, readingscore, mathscore), 
+            ~Hmisc::wtd.mean(.x, weights = total, na.rm = T))) %>%
+    select(api_val_5, yrs_teach:percentfrl, readingscore, mathscore) %>%
+    unique() %>%
+    filter(!is.na(api_bin_5))
+
+plot_title_names <- c(
+    "Avg.Teaching Exp",
+    "Avg. Teaching Exp in District",
+    "% American Indian students",
+    "% Asian students",
+    "% Pacific Islander students",
+    "% Filipino students",
+    "% Hispanic students",
+    "% African American students",
+    "% White students",
+    "Avg. total students",
+    "% Other students",
+    "Prop. FRPL students",
+    "Mean reading scaled score",
+    "Mean math scaled score")
+
+fig_a2_2 <- purrr::map2(colnames(fig_a2_data)[3:16], plot_title_names,
+                 ~ggplot(fig_a2_data) +
+                     geom_point(aes_string(x = "api_val_5", y = .x), size = 1) +
+                     geom_vline(xintercept = 0, linetype = "dotted", color = red) +
+                     labs(x = "API in 2003",
+                          y = "",
+                          title = .y
+                     )+
+                     theme_classic(7))
+#fig_a2_2
+
+wrap_plots(fig_a2_2,
+           nrow =  4, ncol = 4) +
+    plot_annotation(title = "Figure 3. Covariate Balance",
+                    subtitle = "Characteristics in 2003 school year",
+                    caption = stringr::str_wrap("Note: The plot shows subgroup balance on observable characteristics. API in 2003 is normalized to zero at the threshold of 643. Schools are weighted averaged into five API score bins."))
+
 ```
 
 ### B. Replication and Extension
 
-**B1.** An initial visual inspection of our data indicates that the receipt of additional funds for textbooks improved test score outcomes for elementary students in California. For the following graph (Figure 4), we retained Holden's bandwidth of +/- 19.099. Using this bandwidth, we observed a positive linear trend associated with the additional funding.
+**B1.** We present two figures, one on the entire sample and another considering the +/- 19.099 API bandwidth Holden chose for analysis. An initial visual inspection of our data indicates that the receipt of additional funds for textbooks improved test score outcomes for elementary students in California. In Figure 4B, using the analysis bandwidth, we observed a positive linear trend associated with the additional funding.
 
-**Figure 4**
+
+```{r}
+fig_b1 <- dat %>%
+  filter(year == "2005") %>%
+  group_by(api_bin_5) %>%
+  mutate(average_score = Hmisc::wtd.mean(average_score, weights = total, na.rm = T)) %>%
+  dplyr::select(api_bin_5, api_val_5, average_score) %>%
+  unique() %>%
+  filter(!is.na(api_bin_5)) %>%
+  ggplot() +
+  geom_point(aes(x = api_val_5, y = average_score)) +
+  geom_vline(
+    xintercept = 0,
+    linetype = "dotted",
+    color = slate,
+    alpha = 1
+  ) +
+  geom_vline(
+    xintercept = -19.099,
+    linetype = "solid",
+    color = red,
+    alpha = 0.7
+  ) +
+  geom_vline(
+    xintercept = 19.099,
+    linetype = "solid",
+    color = red,
+    alpha = 0.7
+  ) +
+  labs(x = "API in 2003 relative to cutoff",
+       y = "Average scaled score",
+       title = "Figure 4A: Effect of funding on 2005 average scores",
+       caption = stringr::str_wrap("Note: The plot shows predicted test scores of schools in 2003 based on observable characteristics vs the API score bandwidth of 3 points in 2003. API score in 2003 normalized to zero at the threshold of 643.")) +
+  theme_minimal()
+
+fig_b1
+
+```
+
 ```{r }
 dat %>% 
   filter(api_rank >= 623.901 & api_rank <= 662.099) %>% 
@@ -82,11 +300,12 @@ dat %>%
   geom_vline(xintercept = 643, 
              color = "red", 
              linewidth = .5) +
-  theme_pander(base_size = 15) +
+  theme_minimal(base_size = 10) +
   theme(legend.position="none") +
   labs(x = "API",
-       y = "Average math/reading score",
-       color = "Condition")
+       y = "Average math and reading score",
+       color = "Condition",
+       title = "Figure 4B: Effect of textbook funding in 19.099 API bandwidth")
 ```
 
 **B2.** 
@@ -102,7 +321,8 @@ dat05 <- dat %>%
 
 mod05 <- feols(average_score ~ treatment*norm + yrs_teach + yrs_dist + pct_ai + pct_as + pct_pi + pct_fi + pct_hi + pct_aa + pct_wh + total + percentfrl, 
                data = dat05,
-               cluster = dat05$distid)
+               vcov = ~distid)
+
 #2006 Model
 dat06 <- dat %>%
     filter(year == "2006") %>%
@@ -111,7 +331,7 @@ dat06 <- dat %>%
            treatment = factor(treatment, levels = c(0,1)))
 mod06 <- feols(average_score ~ treatment*norm + yrs_teach + yrs_dist + pct_ai + pct_as + pct_pi + pct_fi + pct_hi + pct_aa + pct_wh + total + percentfrl, 
                  data = dat06,
-               cluster = dat06$distid)
+               vcov = ~distid)
 #2007 Model
 dat07 <- dat %>%
     filter(year == "2007") %>%
@@ -120,7 +340,7 @@ dat07 <- dat %>%
            treatment = factor(treatment, levels = c(0,1)))
 mod07 <- feols(average_score ~ treatment*norm + yrs_teach + yrs_dist + pct_ai + pct_as + pct_pi + pct_fi + pct_hi + pct_aa + pct_wh + total + percentfrl, 
                  data = dat07,
-               cluster = dat07$distid)
+               vcov = ~distid)
 #2008 Model
 dat08 <- dat %>%
     filter(year == "2008") %>%
@@ -129,7 +349,7 @@ dat08 <- dat %>%
            treatment = factor(treatment, levels = c(0,1)))
 mod08 <- feols(average_score ~ treatment*norm + yrs_teach + yrs_dist + pct_ai + pct_as + pct_pi + pct_fi + pct_hi + pct_aa + pct_wh + total + percentfrl, 
                  data = dat08,
-               cluster = dat08$distid)
+               vcov = ~distid)
 #2009 Model
 dat09 <- dat %>%
     filter(year == "2009") %>%
@@ -138,7 +358,7 @@ dat09 <- dat %>%
            treatment = factor(treatment, levels = c(0,1)))
 mod09 <- feols(average_score ~ treatment*norm + yrs_teach + yrs_dist + pct_ai + pct_as + pct_pi + pct_fi + pct_hi + pct_aa + pct_wh + total + percentfrl, 
                  data = dat09,
-               cluster = dat09$distid)
+               vcov = ~distid)
 
 #table
 modelsummary(list("2005" = mod05, 
@@ -151,7 +371,21 @@ modelsummary(list("2005" = mod05,
              coef_map = c("treatment1" = "Received Funding"),
              gof_omit = "AIC|BIC|Log|RMSE|R2 .*",
              title = "Table 1. Effect of Textbook funding on Average Scores",
-             notes = "Model estimates and 95% Confidence Intervals are presented. A bandwidth of 19.099 was selected around the threshold. Controls included demographic characteristics of students, teacher experience, and average class size in school.")
+             notes = "Model estimates and 95% Confidence Intervals are presented. A bandwidth of 19.099 was selected around the threshold. Controls included demographic characteristics of students and teacher experience.")
 ```
 
+We estimated the following model using regression discontinuity design.
+
+$$TestScore_{ist} = \alpha + \delta*ReceivedWilliamsFund + \beta*APIScore_{2003} + \gamma*APIScore_{2003}*ReceivedWilliamsFund + X_{ist} + \epsilon_{it}$$
+
+We regress standardized scores in schools s, at time t, in i districts on whether they received Williams funds and a linear function of their API score allowing for differential slope for schools receiving funds and those that didn't.The term X encompasses school-level covariates from 2005, such as the average years of teaching experience, average years of teaching experience within the district, and the percentages of students from various racial and ethnic backgrounds, including American Indian, Asian, Pacific Islander, Filipino, Hispanic, African American, White, and other races. It also includes the percentage of students eligible for free or reduced-price lunches and the total number of students enrolled at the school.  $\epsilon$ represents district-level clustered error term in year t. The causal estimate of interest is $\delta$, which indicates the change in the intercept of standardized test scores in the vicinity of the cutoff.
+
+Using the model, our average estimated effect is 0.20 school-level SD units in 2005, just after the distribution of funds. At the 5% alpha-threshold level, we reject the null hypothesis that there is no causal effect of textbook funding on average scores in elementary schools in California. The 95% confidence interval is 0.04 SD units to 0.37 SD. Thus, our estimates indicates that the receipt of additional funds for textbooks improved test score outcomes for elementary students in California. This is consistent with Holden's estimate reported in Table 5. We see non-significant estimates for other years. 
+
 **B3.**
+
+In this analysis, we used a regression discontinuity design using the exogeneous textbook funding created by Williams settlement case in California. We found that textbook funding has a substantively positive effect on the test scores of California elementary school students. A one-time fund of $96 per student in textbook funding increased average improvement by 0.20 standard deviation units in school-level test scores, a statistically significant effect with a 95% confidence interval ranging from 0.04 to 0.37 standard deviation units. This effect size is not only statistically significant but potentially educationally meaningful, suggesting that the provision of additional textbook funding can contribute to improved academic outcomes.
+
+The assumption checks conducted through the analysis provide confidence in these results. The lack of bunching around the cutoff and the continuity in school characteristics on either side of the threshold lend credence to the causal interpretation of the findings. These assumption tests are crucial as they underpin the validity of the regression discontinuity design, suggesting that the treatment — receipt of textbook funding — is as good as randomly assigned near the cutoff.
+
+However, this study is not without limitations. The analysis is based on observed data, and although the regression discontinuity design helps to control for unobserved confounders near the cutoff, it cannot completely rule out all forms of bias. The causal estimate is local to the vicinity of the cutoff and may not generalize to schools with API scores far from the threshold or schools in other states. Additionally, this study captures the short-term impact of textbook funding, and it would be important to investigate the long-term effects to fully understand the implications of such policy interventions. The sample also excludes certain big special populations, such as students with disabilities, by using the CSAT measure. 

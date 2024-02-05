@@ -77,7 +77,6 @@ fig_a1 <- dat  |>
   theme_minimal()
 
 fig_a1
-
 ```
 
 **A1.** 
