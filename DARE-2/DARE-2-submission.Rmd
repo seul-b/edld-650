@@ -19,7 +19,7 @@ knitr::opts_chunk$set(echo = TRUE,
                       message = FALSE)
 library(pacman)
 p_load(here, tidyverse, DT, ggplot2, xaringan, knitr, kableExtra, modelsummary, stargazer, xaringanthemer, gganimate, ggthemes, fixest, haven)
-dat <- read_dta("DARE-2/EDLD_650_CA_schools_es.dta")
+dat <- read_dta(here("DARE-2", "EDLD_650_CA_schools_es.dta"))
 ```
 
 ### A. Assumption tests
@@ -53,10 +53,11 @@ dat %>%
   filter(subset == 1) %>% 
   ggplot() +
   geom_histogram(aes(api_rank), 
-                 fill = "cornflowerblue", binwidth = 1)  +
+                 fill = "cornflowerblue", 
+                 binwidth = 1)  +
   geom_vline(xintercept = 643, 
              color = "red", 
-             size = .5) +       
+             linewidth = .5) +       
   theme_pander(base_size = 15) + 
   labs(x = "API rank in 2003 relative to Williams' cutoff")
 ```
@@ -80,7 +81,7 @@ dat %>%
               se = FALSE) +
   geom_vline(xintercept = 643, 
              color = "red", 
-             size = .5) +
+             linewidth = .5) +
   theme_pander(base_size = 15) +
   theme(legend.position="none") +
   labs(x = "API",
@@ -92,25 +93,65 @@ dat %>%
 
 **Table 1**
 ```{r }
-bin <- dat %>% 
-  mutate(group = ceiling((api_rank - 543) / 3)) %>%
-  group_by(group) %>% 
-  mutate(across(c("average_score", "ind"), mean))
+#2005 Model
+dat05 <- dat %>%
+    filter(year == "2005") %>%
+    filter(norm > -19.099 & norm < 19.099) %>% 
+    mutate(treatment = ifelse(norm > 0, 0, 1),
+           treatment = factor(treatment, levels = c(0,1)))
 
-linear_const <- lm(average_score ~ api_rank + I(api_rank > 643), bin)
-linear_diff <- lm(average_score ~ api_rank * I(api_rank > 643), bin)
-quadratic <- lm(average_score ~ poly(api_rank,2) + I(api_rank > 643), bin)
+mod05 <- feols(average_score ~ treatment*norm + yrs_teach + yrs_dist + pct_ai + pct_as + pct_pi + pct_fi + pct_hi + pct_aa + pct_wh + total + percentfrl, 
+               data = dat05,
+               cluster = dat05$distid)
+#2006 Model
+dat06 <- dat %>%
+    filter(year == "2006") %>%
+    filter(norm > -19.099 & norm < 19.099) %>% 
+    mutate(treatment = ifelse(norm > 0, 0, 1),
+           treatment = factor(treatment, levels = c(0,1)))
+mod06 <- feols(average_score ~ treatment*norm + yrs_teach + yrs_dist + pct_ai + pct_as + pct_pi + pct_fi + pct_hi + pct_aa + pct_wh + total + percentfrl, 
+                 data = dat06,
+               cluster = dat06$distid)
+#2007 Model
+dat07 <- dat %>%
+    filter(year == "2007") %>%
+    filter(norm > -19.099 & norm < 19.099) %>% 
+    mutate(treatment = ifelse(norm > 0, 0, 1),
+           treatment = factor(treatment, levels = c(0,1)))
+mod07 <- feols(average_score ~ treatment*norm + yrs_teach + yrs_dist + pct_ai + pct_as + pct_pi + pct_fi + pct_hi + pct_aa + pct_wh + total + percentfrl, 
+                 data = dat07,
+               cluster = dat07$distid)
+#2008 Model
+dat08 <- dat %>%
+    filter(year == "2008") %>%
+    filter(norm > -19.099 & norm < 19.099) %>% 
+    mutate(treatment = ifelse(norm > 0, 0, 1),
+           treatment = factor(treatment, levels = c(0,1)))
+mod08 <- feols(average_score ~ treatment*norm + yrs_teach + yrs_dist + pct_ai + pct_as + pct_pi + pct_fi + pct_hi + pct_aa + pct_wh + total + percentfrl, 
+                 data = dat08,
+               cluster = dat08$distid)
+#2009 Model
+dat09 <- dat %>%
+    filter(year == "2009") %>%
+    filter(norm > -19.099 & norm < 19.099) %>% 
+    mutate(treatment = ifelse(norm > 0, 0, 1),
+           treatment = factor(treatment, levels = c(0,1)))
+mod09 <- feols(average_score ~ treatment*norm + yrs_teach + yrs_dist + pct_ai + pct_as + pct_pi + pct_fi + pct_hi + pct_aa + pct_wh + total + percentfrl, 
+                 data = dat09,
+               cluster = dat09$distid)
 
-modelsummary(list(linear_const, linear_diff, quadratic), 
-             stars=T,
-             coef_rename = c("(Intercept)" = "Intercept", 
-                             "api_rank" = "Academic Performance", 
-                             "I(api_rank > 643)TRUE" = "Intended Award",
-                             "api_rank:I(api_rank > 643)TRUE" = "Score x Award", 
-                             "poly(api_rank, 2)1" = "Intended Award", 
-                             "poly(api_rank, 2)2" = "(Intended Award)^2"),
-             gof_omit = "Adj|Pseudo|Log|Within|AIC|BIC|FE|Std|F"
-            )
+#table
+modelsummary(list("2005" = mod05, 
+                  "2006" = mod06, 
+                  "2007" = mod07, 
+                  "2008" = mod08, 
+                  "2009" = mod09),
+             estimate = "{estimate} [{conf.low},{conf.high}]",
+             stars = TRUE,
+             coef_map = c("treatment1" = "Received Funding"),
+             gof_omit = "AIC|BIC|Log|RMSE|R2 .*",
+             title = "Table 1. Effect of Textbook funding on Average Scores",
+             notes = "Model estimates and 95% Confidence Intervals are presented. A bandwidth of 19.099 was selected around the threshold. Controls included demographic characteristics of students, teacher experience, and average class size in school.")
 ```
 
 **B3.**
