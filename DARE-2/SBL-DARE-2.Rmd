@@ -1,6 +1,6 @@
 ---
 title: "DARE-2"
-author: "Seulbi Lee"
+author: "Seulbi Lee, Havi Khurana, Janette Avelar"
 date: "`r Sys.Date()`"
 output: 
   html_document:
@@ -17,31 +17,233 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE,
                       warning = FALSE,
                       message = FALSE)
-library(haven)
-dat <- read_dta("DARE-2/EDLD_650_CA_schools_es.dta")
+library(pacman)
+p_load(dplyr, ere, tidyverse, DT, ggplot2, xaringan, knitr, kableExtra, modelsummary, stargazer, xaringanthemer, gganimate, ggthemes, fixest, haven, Hmisc)
+
+dat <- read_dta("EDLD_650_CA_schools_es.dta")
+
+# For each bin created, it uses the gsub function to extract the lower bound of the bin. The regular expression pattern (.*)(,)(.*) is used to find and capture the characters before the comma, which represents the lower bound of the interval, and replaces the whole string with just this captured group (indicated by \\1).
+
+# api_val_5 is recalculated by parsing the lower bound of each bin to a numeric value using parse_number and then adding 2.5. This calculates the midpoint of each 5-unit interval.
+
+dat <- dat |> 
+    mutate(api_bin_5 = cut(norm, 
+                         breaks = seq(-100, 100, 5)),
+           api_val_5 = gsub("(.*)(,)(.*)","\\1", api_bin_5),
+           api_val_5 = parse_number(api_val_5) + 2.5,
+           api_bin_3 = cut(norm, 
+                           breaks = seq(-99, 99, 3)),
+           api_val_3 = gsub("(.*)(,)(.*)","\\1", api_bin_3),
+           api_val_3 = parse_number(api_val_3) + 1.5)
+```
+
+```{r graphing colors, include=FALSE}
+# Define graphing colors
+red_pink <- "#e64173"
+turquoise <- "#20B2AA"
+orange <- "#FFA500"
+red <- "#fb6107"
+blue <- "#3b3b9a"
+green <- "#8bb174"
+grey_light <- "grey70"
+grey_mid <- "grey50"
+grey_dark <- "grey20"
+purple <- "#6A5ACD"
+slate <- "#314f4f"
 ```
 
 ### A. Assumption tests
 
-```{r A2, include=FALSE}
+```{r A1, include=TRUE}
+
+# replicating figure 3A
+
+fig_a1 <- dat  |>
+  filter(year == "2005")  |>
+  group_by(api_bin_5)  |>
+  mutate(receive_williams = mean(receive_williams, na.rm = T))  |>
+  dplyr::select(api_bin_5, api_val_5, receive_williams)  |>
+  unique()  |>
+  filter(!is.na(api_bin_5))  |>
+  ggplot() +
+  geom_point(aes(x = api_val_5, y = receive_williams)) +
+  geom_vline(xintercept = 0,
+             linetype = "dotted",
+             color = red) +
+  labs(x = "API in 2003 relative to cutoff",
+       y = "Proportion of Schols",
+       title = "Figure 1. School-level assignment of IMWC textbook funding in 2005",
+       caption = "Note: The plot shows Williams Settlement textbook funding as a function of API score in 2003 normalized to zero at the threshold of 643. Schools are weighted averaged into five API score bins.") +
+  theme_minimal()
+
+fig_a1
 
 ```
 
-```{r A1, include=FALSE}
+**A1.** 
+
+This figure shows textbook funding from the Williams based on API in 2003, and the red line indicates the cutoff for eligibility (i.e., API of 643). There is a sharp change before and after the cutoff, which indicates the schools whose API was below 643 received the IMWC one-time payment of $96.90 per student. 
+
+```{r A2, include=TRUE}
+
+# (a) is there evidence that schools attempted to receive an API score that would have made them eligible to receive additional funding
+
+fig_a2_1 <- ggplot(data = dat, aes(x = api_rank)) +
+  geom_histogram(fill = blue, binwidth = 1) +
+  geom_vline(
+    xintercept = 643,
+    color = slate,
+    size = 1,
+    alpha = 0.5
+  ) +
+  geom_vline(
+    xintercept = 643 + 19.099,
+    color = red,
+    size = 0.7,
+    alpha = 0.5
+  ) +
+  geom_vline(
+    xintercept = 643 - 19.099,
+    color = red,
+    size = 0.7,
+    alpha = 0.5
+  ) +
+  theme_minimal(base_size = 18) +
+  labs(x = "API in 2003 relative to cutoff",
+       y = "Number of schools",
+       title = "Figure 2A. Distribution of schools") +
+  theme_minimal()
+
+fig_a2_1
+
+
+# (b) does treatment predict change in the outcome in some discontinuous fashion? (binned scatter plot of outcome against forcing variable)
+
+dat_a2_2 <- dat  |>
+  filter(year == "2003")
+
+pt_score_model <-
+  feols(
+    average_score ~ pct_ai + pct_as + pct_pi + pct_fi + pct_hi + pct_aa + pct_wh + pct_other + percentfrl + classsize + yrs_teach + yrs_dist + total,
+    data = dat_a2_2
+  )
+
+# saving the predict in a new column
+dat_a2_2$predict <- predict(pt_score_model)
+
+# plot predicted vs api_bin
+fig_a2_2 <- dat_a2_2  |>
+  group_by(api_bin_3, api_val_3)  |>
+  mutate(predict = mean(predict, na.rm = T))  |>
+  dplyr::select(api_bin_3, api_val_3, predict)  |>
+  unique()  |>
+  filter(!is.na(api_bin_3))  |>
+  ggplot() +
+  geom_point(aes(x = api_val_3, y = predict)) +
+  geom_vline(xintercept = 0,
+             linetype = "dotted",
+             color = red) +
+  labs(x = "API in 2003 relative to cutoff",
+       y = "Predicted test score",
+       title = "Figure 2B. Predicted scores using school characteristics") +
+  theme_minimal()
+
+fig_a2_2
 
 ```
+
+**A2.** 
+
+The first figure is to examine potential bunching around the forcing variable to determine whether schools just above the cutoff point may have attempted to receive the additional funding. The absence of unusual spikes or bunching around the cutoff point within the specified bandwidth of 19.099 suggests that there isn't clear evidence of non-random sorting around the cutoff. In other words, there does not appear to be a manipulation of ranks by the schools to just make it past the funding eligibility threshold. 
+
+The second figure represents whether there is evidence that schools that did and did not receive Williams funding were different. If the scatter points and the fitted line are continuous and smooth across the cutoff, this provides evidence against systematic differences between schools just below and just above the cutoff. The continuity suggests that the treatment (receiving funding) did not cause a jump or drop at the threshold, supporting the idea that schools on either side of the cutoff are similar in their characteristics, which is key for the validity of RDD.
+
 
 ### B. Replication and Extension
 
-```{r B1, include=FALSE}
+```{r B1, include=TRUE}
+# Create Figure 5 (Panel A of Figure 5 shows school-level test scores in 2003, before the IMWC textbook funding is assigned, and panel B shows school-level test scores in 2005, after the IMWC textbook funding is distributed, both as a function of 2003 API)
+
+fig_b1 <- dat %>%
+  filter(year == "2005") %>%
+  group_by(api_bin_5) %>%
+  mutate(average_score = wtd.mean(average_score, weights = total, na.rm = T)) %>%
+  dplyr::select(api_bin_5, api_val_5, average_score) %>%
+  unique() %>%
+  filter(!is.na(api_bin_5)) %>%
+  ggplot() +
+  geom_point(aes(x = api_val_5, y = average_score)) +
+  geom_vline(
+    xintercept = 0,
+    linetype = "dotted",
+    color = slate,
+    alpha = 1
+  ) +
+  geom_vline(
+    xintercept = -19.099,
+    linetype = "solid",
+    color = red,
+    alpha = 0.7
+  ) +
+  geom_vline(
+    xintercept = 19.099,
+    linetype = "solid",
+    color = red,
+    alpha = 0.7
+  ) +
+  labs(x = "API in 2003 relative to cutoff",
+       y = "Average scaled score",
+       title = "Figure 4: Effect of funding on 2005 average scores") +
+  theme_minimal()
+
+fig_b1
 
 ```
 
-```{r B2, include=FALSE}
+**B1.** 
+
+The initial visual inspection shows the receipt of additional funds for textbook improved test score outcomes, which is consistent with Holden(2016)'s findings. Retaining Holden's bandwidth of +/- 19.099, a positive linear trend is observed.
+
+
+```{r B2, include=TRUE}
+
+# Create Table 5 (estimates for the observed discontinuity seen in panel B of Figure 5, as well as math and reading scores by year. Each entry represents a separate regression, where the row identifies the dependent variable measuring student achievement and the column represents the year)
+
+discont_dat <- dat %>%
+  filter(year == "2005") %>%
+  filter(norm > -19.099 & norm < 19.099) %>%
+  mutate(itt = ifelse(norm > 0, 0, 1),
+         itt = factor(itt, levels = c(0, 1)))
+
+b2_model <-
+  feols(
+    average_score ~ itt * norm + yrs_teach + yrs_dist + pct_ai + pct_as + pct_pi + pct_fi + pct_hi + pct_aa + pct_wh + pct_other + total + percentfrl + classsize,
+    data = discont_dat
+  )
+
+modelsummary(
+  list("Average Score (SD)" = b2_model),
+  estimate = "{estimate} [{conf.low},{conf.high}]",
+  coef_map = c("itt1" = "Recieved Textbook Funding"),
+  gof_omit = "AIC|BIC|Log|RMSE|R2 .*",
+  title = "Table 1. Effect of Textbook funding on Average Scores",
+  notes = "Model estimates and 95% Confidence Intervals are presented. A bandwidth of 19.099 was selected around the threshold. Controls included demographic characteristics of students, teacher experience, and average class size in school."
+)
 
 ```
 
-```{r B3, include=FALSE}
+**B2.** 
 
-```
+The model used for the regression discontinuity design is $$TestScore_{ist} = \alpha + \delta*ReceivedWilliamsFund + \beta*APIScore_{2003} + \gamma*APIScore_{2003}*ReceivedWilliamsFund + X_{ist} + \epsilon_{it}$$
 
+In this model, the primary parameter of interest is $\delta$, which indicates the change in the intercept of standardized test scores in the vicinity of the cutoff. The term X encompasses school-level covariates from 2005, such as the average years of teaching experience, average years of teaching experience within the district, mean class size, and the percentages of students from various racial and ethnic backgrounds, including American Indian, Asian, Pacific Islander, Filipino, Hispanic, African American, White, and other races. It also includes the percentage of students eligible for free or reduced-price lunches and the total number of students enrolled at the school. 
+
+Employing this model, the average effect of receiving Williams Fund for textbooks appears 0.20 standard deviation units at the school level. Given an alpha threshold of 5%, the null hypothesis that the textbook funding has no impact on the average scores of elementary students in California is dismissed. The 95% confidence interval for this effect ranges from 0.06 to 0.35 standard deviation units.
+
+**B3.** 
+
+The findings from the regression discontinuity analysis suggest that the allocation of Williams Fund for textbooks has a substantively positive effect on the test scores of California elementary school students. The model estimates an average improvement of 0.20 standard deviation units in school-level test scores, a statistically significant effect with a 95% confidence interval ranging from 0.06 to 0.35 standard deviation units. This effect size is not only statistically significant but potentially educationally meaningful, suggesting that the provision of additional textbook funding can contribute to improved academic outcomes.
+
+The assumption checks conducted through the analysis provide confidence in these results. The lack of bunching around the cutoff and the continuity in school characteristics on either side of the threshold lend credence to the causal interpretation of the findings. These assumption tests are crucial as they underpin the validity of the regression discontinuity design, suggesting that the treatment — receipt of textbook funding — is as good as randomly assigned near the cutoff.
+
+However, this study is not without limitations. The analysis is based on observed data, and although the regression discontinuity design helps to control for unobserved confounders near the cutoff, it cannot completely rule out all forms of bias. The causal estimate is local to the vicinity of the cutoff and may not generalize to schools with API scores far from the threshold. Additionally, this study captures the short-term impact of textbook funding, and it would be important to investigate the long-term effects to fully understand the implications of such policy interventions.
