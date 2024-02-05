@@ -1,0 +1,226 @@
+---
+title: "Dare2_HK"
+author: "Havi"
+date: "2/4/2024"
+output: 
+  html_document:
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      message = FALSE,
+                      error = FALSE,
+                      warning = FALSE)
+
+```
+
+```{r}
+#Load package and read data
+library(dplyr)
+library(ggplot2)
+library(haven)
+library(readr)
+library(purrr)
+library(patchwork)
+library(Hmisc)
+library(fixest)
+library(modelsummary)
+
+# read data
+dat <- read_dta("https://daviddliebowitz.github.io/edld650/assignments/DARE_2/data/EDLD_650_CA_schools_es.dta")
+
+```
+
+```{r}
+#Creates bins of 3 API and 5 API for graph
+#In paper, different plots use different binning
+
+dat <- dat %>%
+    mutate(api_bin_5 = cut(norm, 
+                         breaks = seq(-100, 100, 5)),
+           api_val_5 = gsub("(.*)(,)(.*)","\\1", api_bin_5),
+           api_val_5 = parse_number(api_val_5) + 2.5,
+           api_bin_3 = cut(norm, 
+                           breaks = seq(-99, 99, 3)),
+           api_val_3 = gsub("(.*)(,)(.*)","\\1", api_bin_3),
+           api_val_3 = parse_number(api_val_3) + 1.5)
+```
+
+## A1. 
+
+```{r}
+#Figure 1 - forcing variable and treatment
+
+fig_a1 <- dat %>%
+    filter(year == "2005") %>%
+    group_by(api_bin_5) %>%
+    mutate(receive_williams = mean(receive_williams, na.rm = T)) %>%
+    dplyr::select(api_bin_5, api_val_5, receive_williams) %>%
+    unique() %>%
+    filter(!is.na(api_bin_5)) %>%
+    ggplot() +
+    geom_point(aes(x = api_val_5, y = receive_williams)) +
+    geom_vline(xintercept = 0, linetype = "dotted", color = "darkred") +
+    labs(x = "API in 2003",
+         y = "Proportion of Schols",
+         title = "Figure 1: School-level assignment of IMWC textbook funding in 2005",
+         caption = "Note: The plot shows Williams Settlement textbook funding as a function of API score in 2003 normalized to zero at the threshold of 643. Schools are weighted averaged into five API score bins."
+         )+
+    theme_classic(10)
+
+fig_a1
+```
+
+## A2. 
+
+```{r}
+# Bunching of schools around the cur-off 
+fig_a2_11 <- dat %>%
+    filter(year == "2003") %>%
+    group_by(api_bin_3, api_val_3) %>%
+    summarise(n_school = n()) %>%
+    ggplot()+
+    geom_point(aes(x = api_val_3, y = n_school))+
+    geom_vline(xintercept = 0, linetype = "dotted", color = "darkred") +
+    labs(x = "API in 2003",
+         y = "Number of Schols",
+         title = "Figure 2A: Distribtion of Schools",
+         caption = "Note: The plot shows number of schools in an API score bandwidth of 3 points in 2003. API score in 2003 normalized to zero at the threshold of 643."
+    )+
+    theme_classic(10)
+
+fig_a2_11
+```
+
+
+```{r}
+# Whether predicted scores are smooth around API threshold
+fig_a2_12_data <- dat %>%
+    filter(year=="2003")
+
+# regressing average_score on observables
+pt_score_model <- 
+    feols(average_score ~ pct_ai + pct_as + pct_pi + pct_fi + pct_hi + pct_aa + pct_wh + pct_other + percentfrl + classsize + yrs_teach + yrs_dist + total, data = fig_a2_12_data) 
+
+# saving the predict in a new column
+fig_a2_12_data$predict <- predict(pt_score_model) 
+
+# plot predicted vs api_bin
+fig_a2_12 <- fig_a2_12_data %>%
+    group_by(api_bin_3, api_val_3) %>%
+    mutate(predict = mean(predict, na.rm = T)) %>%
+    dplyr::select(api_bin_3, api_val_3, predict) %>%
+    unique() %>%
+    filter(!is.na(api_bin_3)) %>%
+    ggplot() +
+    geom_point(aes(x = api_val_3, y = predict))+
+    geom_vline(xintercept = 0, linetype = "dotted", color = "darkred") +
+    labs(x = "API in 2003",
+         y = "Predicted Test Score in 2003",
+         title = "Figure 2B: Predicted score around API threshold",
+         caption = "Note: The plot shows predicted test scores of schools in 2003 based on observable characteristics vs the API score bandwidth of 3 points in 2003. API score in 2003 normalized to zero at the threshold of 643."
+    )+
+    theme_classic(10)
+
+fig_a2_12
+```
+
+```{r}
+# observables just above and below the threshold
+
+fig_a2_data <- dat %>%
+    filter(year == "2003") %>%
+    group_by(api_bin_5) %>%
+    mutate(
+        across(
+            c(yrs_teach:classsize, readingscore, mathscore), 
+            ~wtd.mean(.x, weights = total, na.rm = T))) %>%
+    select(api_val_5, yrs_teach:classsize, readingscore, mathscore) %>%
+    unique() %>%
+    filter(!is.na(api_bin_5))
+
+colnames(fig_a2_data)
+plot_title_names <- c(
+    "Avg.Teaching Exp",
+    "Avg. Teaching Exp in District",
+    "% American Indian students",
+    "% Asian students",
+    "% Pacific Islander students",
+    "% Filipino students",
+    "% Hispanic students",
+    "% African American students",
+    "% White students",
+    "Avg. total students",
+    "% Other students",
+    "Prop. FRPL students",
+    "Avg. class size",
+    "Mean reading scaled score",
+    "Mean math scaled score")
+
+fig_a2_2 <- map2(colnames(fig_a2_data)[3:17], plot_title_names,
+                 ~ggplot(fig_a2_data) +
+                     geom_point(aes_string(x = "api_val_5", y = .x), size = 1) +
+                     geom_vline(xintercept = 0, linetype = "dotted", color = "darkred") +
+                     labs(x = "API in 2003",
+                          y = "",
+                          title = .y
+                     )+
+                     theme_classic(7))
+#fig_a2_2
+
+wrap_plots(fig_a2_2,
+           nrow =  4, ncol = 4) +
+    plot_annotation(title = "Figure 3. Covariate Balance",
+                    subtitle = "Characteristics in 2003 school year",
+                    caption = "Note: The plot shows subgroup balance on observable characteristics. API in 2003 is normalized to zero at the threshold of 643. Schools are weighted averaged into five API score bins.")
+
+```
+
+## B1.
+
+```{r}
+fig_b1 <- dat %>%
+    filter(year == "2005") %>%
+    group_by(api_bin_5) %>%
+    mutate(average_score = wtd.mean(average_score, weights = total, na.rm = T)) %>%
+    dplyr::select(api_bin_5, api_val_5, average_score) %>%
+    unique() %>%
+    filter(!is.na(api_bin_5)) %>%
+    ggplot() +
+    geom_point(aes(x = api_val_5, y = average_score)) +
+    geom_vline(xintercept = 0, linetype = "dotted", color = "red", alpha = 0.7) +
+    geom_vline(xintercept = -19.099, linetype = "solid", color = "darkred", alpha = 0.9) +
+    geom_vline(xintercept = 19.099, linetype = "solid", color = "darkred", alpha = 0.9) +
+    labs(x = "API in 2003",
+         y = "Average score",
+         title = "Figure 4: Effect of funding on 2005 average scores",
+         caption = "Note: The plot shows the effect of textbook funding on average test scores in 2005. API score in 2003 are normalized to zero at the threshold of 643. Schools are weighted averaged into five API score bins. The solid lines shows the range of bandwidth considered for the analysis, whereas the dotted line shows the discontinuity."
+         )+
+    theme_classic(10)
+
+fig_b1
+```
+
+## B2.
+
+```{r}
+discont_dat <- dat %>%
+    filter(year == "2005") %>%
+    filter(norm > -19.099 & norm < 19.099) %>%
+    mutate(itt = ifelse(norm > 0, 0, 1), #create indicator
+           itt = factor(itt, levels = c(0,1)))
+
+itt_model <- feols(average_score ~ itt*norm + yrs_teach + yrs_dist + pct_ai + pct_as + pct_pi + pct_fi + pct_hi + pct_aa + pct_wh + pct_other + total + percentfrl + classsize, 
+                 data = discont_dat)
+
+modelsummary(list("Average Score (SD unit)" = itt_model),
+             estimate = "{estimate} [{conf.low},{conf.high}]",
+             #statistic = ,
+             coef_map = c("itt1" = "Recieved Textbook Funding"),
+             #coef_rename = ,
+             gof_omit = "AIC|BIC|Log|RMSE|R2 .*",
+             title = "Table 1. Effect of Textbook funding on Average Scores",
+             notes = "Model estimates and 95% Confidence Intervals are presented. A bandwidth of 19.099 was selected around the threshold. Controls included demographic characteristics of students, teacher experience, and average class size in school.")
+```
+
