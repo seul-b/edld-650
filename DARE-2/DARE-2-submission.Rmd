@@ -39,7 +39,7 @@ dat %>%
        y = "Williams recipient in 2005")
 ```
 
-**A2.** In Figure 2, we examine potential bunching around the forcing variable to determine whether schools just above the cutoff point may have attempted to receive an API score that would have made them eligible to receive additional funding. Here, we have limited our sample using Holden's bandwidth of 19.099, observing a total of 1,947 schools. The distribution of schools are smooth through the cutoff. Coupled with the decision to use API scores from the year prior to announcing and implementing funding, we argue that there is enough evidence against the possibility of nonrandom sorting.
+**A2.** In Figure 2, we examine potential bunching around the forcing variable to determine whether schools just above the cutoff point may have attempted to receive an API score that would have made them eligible to receive additional funding. Here, we have limited our sample using Holden's bandwidth of 19.099, observing a total of 1,947 schools. The distribution of schools is smooth through the cutoff. Coupled with the decision to use API scores from the year prior to announcing and implementing funding, we argue that there is enough evidence against the possibility of nonrandom sorting.
 
 **Figure 2**
 ```{r }
@@ -68,16 +68,22 @@ dat %>%
 **Figure 4**
 ```{r }
 dat %>% 
+  filter(api_rank >= 623.901 & api_rank <= 662.099) %>% 
+  mutate(ind = factor(ind)) %>% 
   group_by(api_rank) %>% 
   summarise(across(c("average_score", "ind"), mean)) %>% 
-  mutate(low = ifelse(api_rank <= 643, "Received funding", "Did not receive funding")) %>% 
-  ggplot(aes(api_rank, average_score, color = low)) +
+  mutate(condition = ifelse(api_rank <= 643, "Received funding", "Did not receive funding")) %>% 
+  ggplot(aes(api_rank, average_score, color = condition)) +
   geom_point(alpha = 0.8, shape = 16) +
-  geom_smooth(method = "lm", se = FALSE) +
-  geom_vline(xintercept = 643, color = "red", size = .5) +
-  theme_pander(base_size = 18) +
+  geom_smooth(method = "lm", 
+              formula = y ~ poly(x, 2),
+              se = FALSE) +
+  geom_vline(xintercept = 643, 
+             color = "red", 
+             size = .5) +
+  theme_pander(base_size = 15) +
   theme(legend.position="none") +
-  labs(x = "API in 2003 relative to cutoff",
+  labs(x = "API",
        y = "Average math/reading score",
        color = "Condition")
 ```
