@@ -1,0 +1,194 @@
+---
+title: "SBL-DARE-3"
+author: "Seulbi Lee, Havi Khurana, Janette Avelar"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: flatly
+    highlight: tango
+    code_folding: hide
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,
+                      warning = FALSE,
+                      message = FALSE)
+library(pacman)
+
+p_load(here, tidyverse, DT, ggplot2, xaringan, knitr, kableExtra, modelsummary, stargazer, xaringanthemer, ggthemes, fixest, haven, arsenal, readr, Hmisc, dplyr, tidyr, rempsyc)
+
+dat <- read_csv("EDLD_650_DARE_3.csv")
+```
+
+```{r graphing colors, include=FALSE}
+# Define graphing colors
+red_pink <- "#e64173"
+turquoise <- "#20B2AA"
+orange <- "#FFA500"
+red <- "#fb6107"
+blue <- "#3b3b9a"
+green <- "#8bb174"
+grey_light <- "grey70"
+grey_mid <- "grey50"
+grey_dark <- "grey20"
+purple <- "#6A5ACD"
+slate <- "#314f4f"
+```
+
+### A. Baseline randomization checks
+
+```{r A1, include=TRUE}
+## Table 2. Comparison of Baseline Characteristics for Children in READ 180 Enterprise and Control Group
+
+dat_a1 <- dat |> 
+  mutate(
+    treat = factor(treat, levels=c(0,1), labels = c("Control", "READ 180"))) |> 
+  rename("Free/Reduced Price Lunch" = frpl, "Female" = female, "DORF" = dorf)
+
+descriptive.data <- dat_a1 |> 
+  group_by(treat) |>
+  dplyr::summarize(
+    across(c("Free/Reduced Price Lunch", Female, DORF),
+           list(n = ~n(), m = ~mean(., na.rm = TRUE), sd = ~sd(., na.rm = TRUE)),
+           .names = "{.col}.{.fn}")) |> 
+  pivot_longer(
+    cols = -treat,
+    names_to = c("Variable",".value"),
+    names_pattern = "([^.]+)\\.(n|m|sd)"
+  ) 
+
+a1_table <- descriptive.data |> 
+  pivot_wider(
+    names_from = treat,
+    values_from = c(n, m, sd),
+    names_sep = "_"
+  ) |> 
+  select(Variable,"n_Control","m_Control","sd_Control","n_READ 180","m_READ 180","sd_READ 180")
+
+## Add t and p values
+
+frpl <- nice_t_test(data = dat, response = 'frpl', group = 'treat')
+female <- nice_t_test(data = dat, response = 'female', group = 'treat')
+dorf <- nice_t_test(data = dat, response = 'dorf', group = 'treat')
+
+a1_stats <- data.frame(
+  Variable = c("Free/Reduced Price Lunch", 'Female', 'DORF'),
+  t = c(frpl[1,2],female[1,2], dorf[1,2]),
+  p = c(frpl[1,4],female[1,4], dorf[1,4])
+)
+
+a1 <- left_join(a1_table, a1_stats, by = "Variable")
+
+nice_table <- function(data, separate.header = TRUE) {
+  if(separate.header) {
+    kable(data, "html") |> 
+      kable_styling(bootstrap_options = c("striped", "hover"), full_width = F) |> 
+      add_header_above(c(" " = 1, "Control" = 3, "READ 180" = 3))
+  } else {
+    kable(data, "html") |> 
+      kable_styling(bootstrap_options = c("striped", "hover"), full_width = F)
+  }
+}
+
+names(a1_table)[-1] <- paste0(
+  paste0(c("n", "M", "SD"))
+)
+
+nice_table(a1_table, separate.header = TRUE)
+
+new_table <- function(data, separate.header = TRUE) {
+  if(separate.header) {
+    kable(data, "html") |> 
+      kable_styling(bootstrap_options = c("striped", "hover"), full_width = F) |> 
+      add_header_above(c(" " = 1, "Control" = 3, "READ 180" = 3, " " = 2))
+  } else {
+    kable(data, "html") |> 
+      kable_styling(bootstrap_options = c("striped", "hover"), full_width = F)
+  }
+}
+
+names(a1)[-1] <- paste0(
+  paste0(c("n", "M", "SD","n", "M", "SD","t","p"))
+)
+
+new_table(a1, separate.header = TRUE)
+```
+
+**A1.** 
+
+
+
+
+
+### B. Replication and Extension
+
+```{r B1, include=TRUE}
+## Naive OLS estimates of the outcome on endogenous predictor
+
+ols1 <- lm(sat10_compreh ~ read180_attend, data=dat)
+# ols2 <- lm(sat10_compreh ~ read180_attend + frpl + female + dorf, data=dat)
+
+stargazer(ols1, type='html', omit.stat = c("ser", "adj.rsq", "f"), 
+          dep.var.caption="", dep.var.labels.include=F, omit=c("Constant"), 
+          star.cutoffs=c(0.05, 0.01, 0.001), notes.align="l")
+```
+
+**B1.** 
+
+
+```{r B2, include=TRUE}
+mean <- dat |> 
+  dplyr::group_by(treat) |> 
+  dplyr::summarize(sat10_compreh = mean(sat10_compreh))
+
+
+ggplot(data=mean, aes(x=treat, y=sat10_compreh)) + 
+          geom_col(fill=red_pink, alpha=0.4) + 
+          theme_pander(base_size = 18) +
+          xlab("Assigned treatment status") + scale_y_continuous("Reading comprehension post-test")
+```
+
+**B2.** 
+
+```{r B3, include=TRUE}
+## Intent-to-Treat (ITT) estimates
+# mutate to factor 
+itt1 <- lm(sat10_compreh ~ treat, data=dat)
+itt2 <- lm(sat10_compreh ~ treat + frpl + female + dorf, data=dat)
+itt3 <- feols(sat10_compreh ~ treat + frpl + female + dorf | school, data=dat)
+
+## Create a row indicating FEs
+row <- tribble(~term,          ~'1',  ~'2', ~'3', 
+                 'School Fixed Effects', 'No', 'No', 'Yes')
+attr(row, 'position') <- c(7)
+  
+modelsummary(list(itt1, itt2, itt3), 
+               title = "Table 1. Intent-to-Treat Estimates of Being Assigned to Participate in an After-school READ180 Intervention.",
+               stars=c('*' = 0.05, '**' = 0.01, '***' = 0.001),
+               coef_omit = "(Intercept)|as.factor",
+               coef_rename = c("treat" = "Assignment","frpl" = "Free/Reduced Price Lunch", "female" = "Female", "dorf" = "DORF"),
+               estimate = "{estimate}{stars}",
+               gof_omit= "Adj|Pseudo|Log|Within|AIC|BIC|FE|Std|R2|F",
+               add_rows = row,
+               threeparttable= T,
+               notes = c("Notes: The table displays coefficients from Equation X and standard errors in parentheses."),
+               type='html')
+
+```
+
+**B3.** 
+
+```{r B4, include=TRUE}
+# TOT 
+
+```
+
+**B4.** 
+
+**B5.** 
+
