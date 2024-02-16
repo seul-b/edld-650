@@ -82,7 +82,8 @@ a1_stats <- data.frame(
   p = c(frpl[1,4],female[1,4], dorf[1,4])
 )
 
-a1 <- left_join(a1_table, a1_stats, by = "Variable")
+a1 <- left_join(a1_table, a1_stats, by = "Variable") |> 
+  mutate(across(c(n_Control, m_Control, sd_Control, 'n_READ 180', 'm_READ 180', 'sd_READ 180', t, p), ~round(., 3)))
 
 nice_table <- function(data, separate.header = TRUE) {
   if(separate.header) {
@@ -95,19 +96,13 @@ nice_table <- function(data, separate.header = TRUE) {
   }
 }
 
-names(a1_table)[-1] <- paste0(
-  paste0(c("n", "M", "SD"))
-)
-
-nice_table(a1_table, separate.header = TRUE)
-
 new_table <- function(data, separate.header = TRUE) {
   if(separate.header) {
-    kable(data, "html") |> 
-      kable_styling(bootstrap_options = c("striped", "hover"), full_width = F) |> 
+    kable(data, "html") |>
+      kable_styling(bootstrap_options = c("striped", "hover"), full_width = F) |>
       add_header_above(c(" " = 1, "Control" = 3, "READ 180" = 3, " " = 2))
   } else {
-    kable(data, "html") |> 
+    kable(data, "html") |>
       kable_styling(bootstrap_options = c("striped", "hover"), full_width = F)
   }
 }
