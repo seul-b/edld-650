@@ -20,9 +20,9 @@ knitr::opts_chunk$set(echo = TRUE,
                       message = FALSE)
 library(pacman)
 
-p_load(tidyverse, fixest, modelsummary, kableExtra)
+p_load(tidyverse, fixest, modelsummary, kableExtra, psych)
 
-dat <- read.csv("EDLD_650_DARE_3.csv")
+dat <- read.csv("DARE-3/EDLD_650_DARE_3.csv")
 ```
 
 ```{r graphing colors, include=FALSE}
@@ -116,19 +116,44 @@ The comparison between treatment and control groups at baseline showed no statis
 
 ### B. Replication and Extension
 
-```{r B1, include=TRUE}
-## Naive OLS estimates of the outcome on endogenous predictor
 
-# ols1 <- lm(sat10_compreh ~ read180_attend, data=dat)
-# # ols2 <- lm(sat10_compreh ~ read180_attend + frpl + female + dorf, data=dat)
-# 
-# stargazer(ols1, type='html', omit.stat = c("ser", "adj.rsq", "f"), 
-#           dep.var.caption="", dep.var.labels.include=F, omit=c("Constant"), 
-#           star.cutoffs=c(0.05, 0.01, 0.001), notes.align="l")
+```{r B1, include=TRUE}
+#models
+ols1 <- lm(sat10_compreh ~ read180_attend,
+           data = dat)
+ols2 <- lm(sat10_compreh ~ read180_attend + as.factor(frpl) + as.factor(female) + dorf,
+           data = dat)
+ols3 <- feols(sat10_compreh ~ read180_attend + as.factor(frpl) + as.factor(female) + dorf | school,
+              data = dat)
+# ols4 <- lm(sat10_compreh ~ read180_attend + as.factor(frpl) + as.factor(female) + dorf + as.factor(school),
+#            data = dat)
+#fixed effects row
+row <- tribble(~term,          ~'1',  ~'2', ~'3', 
+                 'School Fixed Effects', 'No', 'No', 'Yes')
+attr(row, 'position') <- c(9)
+#table
+modelsummary(list(
+  "Model 1" = ols1,
+  "Model 2" = ols2,
+  "Model 3" = ols3),
+  title = "Table 1. OLS Estimates of Attendance Rate in READ180 Intervention",
+  stars = TRUE,
+  coef_map = c(
+    "(Intercept)" = "Intercept",
+    "read180_attend" = "Attendance proportion",
+    "as.factor(frpl)1" = "Free/Reduced Price lunch",
+    "as.factor(female)1" = "Female",
+    "dorf" = "DIBELS Oral Reading Fluency score",
+    "frpl" = "Free and reduced-price lunch eligible"
+  ),
+  gof_omit = "AIC|BIC|Log|F|RMSE|Std.Errors|R2 .*",
+  add_rows = row,
+  type = "html")
+  #coef_omit = "(Intercept)")
 ```
 
 **B1.** 
-
+Our results from the naive OLS models show that higher attendance in the READ 180 program improves post-test reading scores on the final reading comprehension assessment. In the unconditional model, we estimated that attending 100% of the READ180 program sessions increases the score on the SAT10 comprehension test by 11 points (p < 0.05), on average among low-performing upper-elementary students.  In model 2, we added student-level baseline covariates which reduced our intercept and the estimated magnitude of attendance on overall final performance slightly, but made the estimate more precise. In model 3, we added school-level fixed effects to account for clustering and school-level variation. In this model, we estimated that attending 100% of the READ180 program sessions increased the post-test score by 9.6 points (p < 0.05). However, none of these results should be interpreted as the causal effect of READ 180 on reading comprehension outcomes. Although treatment was randomly assigned, attendance is an endogenous predictor and there may be differences in groups of students with high and low attendance. 
 
 ```{r B2, include=TRUE}
 ggplot(dat, aes(x =  as.factor(treat), y = sat10_compreh, fill = as.factor(treat)))+
@@ -149,7 +174,6 @@ ggplot(dat, aes(x =  as.factor(treat), y = sat10_compreh, fill = as.factor(treat
 ```
 
 **B2.** 
-
 
 
 ```{r B3, include=TRUE}
@@ -208,4 +232,4 @@ modelsummary(list("Model 1" = tot1, "Model 2" = tot2,"Model 3" = tot3),
 **B4.** 
 
 **B5.** 
-
+In our replication study, we found that implementation of the READ 180 after-school program improved reading comprehension on the SAT 10 assessment. In our first stage models, our ITT estimates indicated that assignment to the READ 180 program was associated with about a 9-point increase in reading comprehension scores. Our IV estimates were consistent in the second-stage models. Together, our ITT and IV analyses indicate that students with full attendance in the program performed better than those students who did not attend the voluntary program. Our findings are robust across baseline student characteristics and school fixed effects. These findings are in line with the original randomized control trial results presented by Kim and colleagues (2011). As a replication study, we are subject to the same sampling and generalizability limitations of the original study, including that we were unable to examine whether differences in prior levels of achievement may influence the results we found and cannot speak to the longitudinal effects or generalizability to wider populations of students that are not lower-performing 4th and 5th grade readers. Further, it’s important to note that our data did not include student racial characteristics, grade level information, or outcomes for spelling and vocabulary, thus our estimates may show some differences from those in the original study.
