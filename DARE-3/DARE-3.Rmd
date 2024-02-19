@@ -118,9 +118,9 @@ Table 1 shows the sample size, means, and standard deviations for baseline chara
 
 ```{r B1, include=TRUE}
 #models
-ols1 <- lm(sat10_compreh ~ read180_attend,
+ols1 <- feols(sat10_compreh ~ read180_attend,
            data = dat)
-ols2 <- lm(sat10_compreh ~ read180_attend + as.factor(frpl) + as.factor(female) + dorf,
+ols2 <- feols(sat10_compreh ~ read180_attend + as.factor(frpl) + as.factor(female) + dorf,
            data = dat)
 ols3 <- feols(sat10_compreh ~ read180_attend + as.factor(frpl) + as.factor(female) + dorf | school,
               data = dat)
@@ -129,14 +129,16 @@ ols3 <- feols(sat10_compreh ~ read180_attend + as.factor(frpl) + as.factor(femal
 #fixed effects row
 row <- tribble(~term,          ~'1',  ~'2', ~'3', 
                  'School Fixed Effects', 'No', 'No', 'Yes')
-attr(row, 'position') <- c(9)
+attr(row, 'position') <- c(11)
 #table
 modelsummary(list(
   "Model 1" = ols1,
   "Model 2" = ols2,
   "Model 3" = ols3),
   title = "Table 2. OLS Estimates of Attendance Rate in READ180 Intervention",
+  notes = "Note: Robust standard errors are included in the paranthesis.",
   stars = TRUE,
+  vcov = "robust",
   coef_map = c(
     "(Intercept)" = "Intercept",
     "read180_attend" = "Attendance proportion",
@@ -152,7 +154,7 @@ modelsummary(list(
 ```
 
 **B1.** 
-Our results from the naive OLS models show that higher attendance in the READ 180 program improves post-test reading scores on the final reading comprehension assessment. In the unconditional model, we estimated that attending 100% of the READ180 program sessions increases the score on the SAT10 comprehension test by 11 points (p < 0.05), on average among low-performing upper-elementary students.  In model 2, we added student-level baseline covariates which reduced our intercept and the estimated magnitude of attendance on overall final performance slightly, but made the estimate more precise. In model 3, we added school-level fixed effects to account for clustering and school-level variation. In this model, we estimated that attending 100% of the READ180 program sessions increased the post-test score by 9.6 points (p < 0.05). However, none of these results should be interpreted as the causal effect of READ 180 on reading comprehension outcomes. Although treatment was randomly assigned, attendance is an endogenous predictor and there may be differences in groups of students with high and low attendance. 
+Our results from the naive OLS models show that higher attendance in the READ 180 program improves post-test reading scores on the final reading comprehension assessment. In the unconditional model, we estimated that attending 100% of the READ180 program sessions is associated with a higher score on the SAT10 comprehension test by 11 points (p < 0.05), on average, among low-performing upper-elementary students.  In model 2, we added student-level baseline covariates which reduced our intercept and the estimated magnitude of attendance on overall final performance slightly, but made the estimate more precise. In model 3, we added school-level fixed effects to account for clustering and school-level variation. Our fixed-effect model estimated that attending 100% of the READ180 program sessions is associated with a higher post-test score by 9.6 points (p < 0.05). However, none of these results should be interpreted as the causal effect of READ 180 on reading comprehension outcomes. Although treatment was randomly assigned, attendance is an endogenous predictor and there may be differences in groups of students with high and low attendance, thus our OLS estimates may be correlated with test score residuals. 
 
 ```{r B2, include=TRUE}
 ggplot(dat, aes(x =  as.factor(treat), y = sat10_compreh, fill = as.factor(treat)))+
@@ -173,7 +175,7 @@ ggplot(dat, aes(x =  as.factor(treat), y = sat10_compreh, fill = as.factor(treat
 ```
 
 **B2.** 
-On average, students in the READ180 intervention had a score of 634 in the post-test reading comprehension, whereas students in the control group had a score of 625. The raw difference in scores seems big, <> of the standard deviation, however, we haven’t conducted a statistical test to find whether the difference is anything other than sampling idiosyncrasy.  
+On average, students in the READ180 intervention had a score of 634 in the post-test reading comprehension, whereas students in the control group had a score of 625. The raw difference in scores seems moderate, 0.27sd of the SAT10 test scores, however, we haven’t conducted a statistical test to find whether the difference is anything other than sampling idiosyncrasy.  
 
 
 ```{r B3, include=TRUE}
@@ -198,7 +200,7 @@ modelsummary(list("Model1" = itt1, "Model 2" = itt2, "Model 3" = itt3),
                add_rows = row,
                threeparttable= T,
               vcov = "robust",
-               notes = c("Notes: The table displays coefficients from Equation X and robust standard errors in parentheses."),
+               notes = c("Notes: Robust standard errors are reported in parentheses."),
                type='html')
 
 ```
@@ -206,12 +208,12 @@ modelsummary(list("Model1" = itt1, "Model 2" = itt2, "Model 3" = itt3),
 **B3.** 
 In our analysis of the impact of assigning students to the READ80 program on reading comprehension outcomes, we estimated the following model in three specifications.
 
-SAT<sub>i</sub> = β<sub>0</sub> + β<sub>1</sub> * Treatment<sub>i</sub> + β<sub>2</sub> * Female<sub>i</sub> + β<sub>3</sub> * FRPL<sub>i</sub> + β<sub>4</sub> * DORF<sub>i</sub> + β<sub>5</sub> * School<sub>i</sub> + ε<sub>i</sub>
+$$SAT10_i = \beta_0 + \beta_1 * Treatment_i + \beta_2 * Female_i + \beta_3 * FRPL_i + \beta_4 * DORF_i + \beta_5 * School_i + \epsilon_i$$
 
 
-Model 1 suggests that predicted attendance in the READ180 program is associated with an 11.472 point increase in reading comprehension scores (p < 0.05), indicating a positive effect of attendance on outcomes. When adding baseline covariates in Model 2, the estimated effect of attendance remains positive and statistically significant (10.236 points, p < 0.001), but the inclusion of these covariates increases the model’s explanatory power substantially, as reflected by the R-squared value of 0.736. The addition of school fixed effects in Model 3 marginally adjusts the estimated effect of attendance (10.208 points, p < 0.05) and further improves the model fit.
+Model 1 suggests that assignment to the READ180 program increased reading comprehension scores by 9 points (p < 0.05), indicating a positive effect of the assignment on outcomes. When adding baseline covariates in Model 2, the estimated effect of attendance remains positive and statistically significant (8.037 points, p < 0.001), but the inclusion of these covariates increases the model’s explanatory power substantially, as reflected by the R-squared value of 0.736. The addition of school fixed effects in Model 3 marginally adjusts the estimated effect of attendance (8.003 points, p < 0.05).
  
-The models suggest that while individual and school-level characteristics are important, attendance at the READ180 program itself is a key predictor of reading comprehension achievement among students. The results here differ from the raw comparison in B2 in that we didn’t examine statistical significance in B2. In addition, the results here provide an adjusted measure of the READ180 program's effect, accounting for individual characteristics and school-level influences. While B2's raw difference in scores does not account for these factors, the estimates provided here offer a more nuanced understanding of the relationship between READ180 attendance and reading outcomes. The statistical significance and control for confounding baseline variables in the regression make our model estimates more precise. 
+The models suggest that while individual and school-level characteristics are important, assignment to the READ180 program itself is a key predictor of reading comprehension achievement among students. The results here differ from the raw comparison in B2 in that we didn’t examine statistical significance in B2. In addition, the results here provide an adjusted measure of the READ180 program's effect, accounting for individual characteristics and school-level influences. While B2's raw difference in scores does not account for these factors, the estimates provided here offer a more nuanced understanding of the relationship between READ180 attendance and reading outcomes. The statistical significance and control for confounding baseline variables in the regression make our model estimates more precise. 
 
 
 ```{r B4, include=TRUE}
@@ -234,7 +236,7 @@ modelsummary(list("Model 1" = tot1, "Model 2" = tot2,"Model 3" = tot3),
                gof_omit= "Adj|Pseudo|Log|Within|AIC|BIC|Std|F",
                add_rows = row,
                threeparttable= T,
-               notes = c("Notes: The table displays coefficients from Equation X and robust standard errors in parentheses."),
+               notes = c("Notes: Robust standard errors are reported in parentheses."),
                type='html')
 ```
 
@@ -243,16 +245,16 @@ Table 4 displays the Treatment on the Treated (TOT) estimate of READ180 Enterpri
 
 First stage equation:
 
-Attendance<sub>i</sub> = π<sub>0</sub> + π<sub>1</sub> * Treatment<sub>i</sub> + π<sub>2</sub> * Female<sub>i</sub> + π<sub>3</sub> * FRPL<sub>i</sub> + π<sub>4</sub> * DORF<sub>i</sub> + π<sub>5</sub> * School<sub>i</sub> + δ<sub>i</sub> 
+$$Attendance_i = \pi_0 + \pi_1 * Treatment_i + \pi_2 * Female_i + \pi_3 * FRPL_i + \pi_4 * DORF_i + \pi_5 * School_i + \delta_i$$ 
 
 Second stage equation:
 
-SAT<sub>10i</sub> = β<sub>0</sub> + β<sub>1</sub> * &#773;Attendance<sub>i</sub> + β<sub>2</sub> * Female<sub>i</sub> + β<sub>3</sub> * FRPL<sub>i</sub> + β<sub>4</sub> * DORF<sub>i</sub> + β<sub>5</sub> * School<sub>i</sub> + ε<sub>i</sub>
+$$SAT10_i = \beta_0 + \beta_1 * \widehat{Attendance_i} + \beta_2 * Female_i + \beta_3 * FRPL_i + \beta_4 * DORF_i + \beta_5 * School_i + \epsilon_i$$
 
-In the first-stage model, there was a strong relationship between the assignment to the treatment and attendance of the READ180 program (F = ). We found that there was a positive impact of the READ180 program on student’s comprehension scores; on average, a 100 percent attendance in the seven-month program increased student scores by 10 points (p < 0.05) compared to not attending at all. 
+In the first-stage model, there was a strong relationship between the assignment to the treatment and attendance of the READ180 program (F = 1671). We found that there was a positive impact of the READ180 program on student’s comprehension scores. In our preferred model specification (Model 3), on average, a 100 percent attendance in the seven-month program increased student scores by 10 points (p < 0.05) compared to not attending at all. 
 
 The key assumptions of an instrumental variable estimation strategy includes, 1) a strong correlation between the instrument and the endogenous predictor; 2) no correlation between instrument and error residuals in both the stages. We feel confident in meeting these assumptions. The high F-statistic in the first-stage equation highlights the strong correlation between the instrument and the predictor. Moreover, the instrument (assignment to treatment) was randomly assigned at the block level, which makes the treatment and control groups equal in expectation on their observed and unobserved characteristics. Given the findings of the balance check on observed characteristics between the two groups (Table 1), we are confident that the randomization process was successful and hence the estimates are unbiased. Finally, there is little reason to believe that random assignment to a treatment would affect a student's comprehension score (exclusion restriction), especially since randomization happened at the school-grade block level. 
 
 
 **B5.** 
-In our replication study, we found that implementation of the READ 180 after-school program improved reading comprehension on the SAT 10 assessment. In our first set of models, our ITT estimates indicated that assignment to the READ 180 program increased reading comprehension scores by 9 points. Our TOT estimate, implemented by IV strategy, was higher that the ITT estimate, attending 100% of the READ 180 sessions increased test scores by 10 points. Together, our ITT and TOT analyses indicate that the READ 180 intervention had a positive effect on the comprehension skills of at-risk upper-elementary students. Our findings are robust across baseline student characteristics and school fixed effects. These findings are in line with the original randomized control trial results presented by Kim and colleagues (2011). As a replication study, we are subject to the same sampling and generalizability limitations of the original study, including that we were unable to examine whether differences in prior levels of achievement may influence the results we found and cannot speak to the longitudinal effects or generalizability to wider populations of students that are not lower-performing 4th and 5th grade readers. Further, it’s important to note that our data did not include student racial characteristics, grade level information, or outcomes for spelling and vocabulary, thus our estimates may show some differences from those in the original study.
+In our replication study, we found that implementation of the READ 180 after-school program improved reading comprehension on the SAT 10 assessment. In our first set of models, our ITT estimates indicated that assignment to the READ 180 program increased reading comprehension scores by 8 points. Our TOT estimate, implemented by IV strategy, was higher that the ITT estimate, attending 100% of the READ 180 sessions increased test scores by 10 points. Together, our ITT and TOT analyses indicate that the READ 180 intervention had a positive effect on the comprehension skills of at-risk upper-elementary students, on average. Our findings are robust across baseline student characteristics and school fixed effects. These findings are in line with the original randomized control trial results presented by Kim and colleagues (2011). As a replication study, we are subject to the same sampling and generalizability limitations of the original study, including that we were unable to examine whether differences in prior levels of achievement may influence the results we found and cannot speak to the longitudinal effects or generalizability to wider populations of students that are not lower-performing 4th and 5th grade readers. Further, it’s important to note that our data did not include student racial characteristics, grade level information, or outcomes for spelling and vocabulary, thus our estimates may show some differences from those in the original study.
