@@ -91,9 +91,9 @@ nice_table <- function(data, separate.header = TRUE) {
   }
 }
 
-new_table <- function(data, separate.header = TRUE) {
+new_table <- function(data, separate.header = TRUE, title) {
   if(separate.header) {
-    kable(data, "html") |>
+    kable(data, "html", caption = title) |>
       kable_styling(bootstrap_options = c("striped", "hover"), full_width = F) |>
       add_header_above(c(" " = 1, "Control" = 3, "READ 180" = 3, " " = 2))
   } else {
@@ -106,12 +106,11 @@ names(dat_a1)[-1] <- paste0(
   paste0(c("n", "M", "SD","n", "M", "SD","t","p"))
 )
 
-new_table(dat_a1, separate.header = TRUE)
+new_table(dat_a1, separate.header = TRUE, title = "Table 1. Comparison of Baseline Characteristics for Children in READ 180 Enterprise and Control Group")
 ```
 
 **A1.** 
-
-The comparison between treatment and control groups at baseline showed no statistically significant difference in baseline characteristics for the full sample as p-values for all variables are not lower than 0.05 and t-values are relatively low, indicating there are no significant differences between the two groups.
+Table 1 shows the sample size, means, and standard deviations for baseline characteristics by treatment status. The comparison between treatment and control groups showed no statistically significant difference in baseline characteristics, namely, the proportion of students eligible for free/reduced price lunch, proportion of female students, and average score on Dibels Oral Reading Fluency test (p-values > 0.05). If the baseline characteristics were significantly different among the two groups, we would have reason to believe that the randomization process didn’t create groups which were equal in expectation on observed and unobserved characteristics, which would threaten the causal claims of the study.
 
 
 ### B. Replication and Extension
@@ -136,7 +135,7 @@ modelsummary(list(
   "Model 1" = ols1,
   "Model 2" = ols2,
   "Model 3" = ols3),
-  title = "Table 1. OLS Estimates of Attendance Rate in READ180 Intervention",
+  title = "Table 2. OLS Estimates of Attendance Rate in READ180 Intervention",
   stars = TRUE,
   coef_map = c(
     "(Intercept)" = "Intercept",
@@ -174,6 +173,7 @@ ggplot(dat, aes(x =  as.factor(treat), y = sat10_compreh, fill = as.factor(treat
 ```
 
 **B2.** 
+On average, students in the READ180 intervention had a score of 634 in the post-test reading comprehension, whereas students in the control group had a score of 625. The raw difference in scores seems big, <> of the standard deviation, however, we haven’t conducted a statistical test to find whether the difference is anything other than sampling idiosyncrasy.  
 
 
 ```{r B3, include=TRUE}
@@ -204,6 +204,15 @@ modelsummary(list("Model1" = itt1, "Model 2" = itt2, "Model 3" = itt3),
 ```
 
 **B3.** 
+In our analysis of the impact of assigning students to the READ80 program on reading comprehension outcomes, we estimated the following model in three specifications.
+
+SAT<sub>i</sub> = β<sub>0</sub> + β<sub>1</sub> * Treatment<sub>i</sub> + β<sub>2</sub> * Female<sub>i</sub> + β<sub>3</sub> * FRPL<sub>i</sub> + β<sub>4</sub> * DORF<sub>i</sub> + β<sub>5</sub> * School<sub>i</sub> + ε<sub>i</sub>
+
+
+Model 1 suggests that predicted attendance in the READ180 program is associated with an 11.472 point increase in reading comprehension scores (p < 0.05), indicating a positive effect of attendance on outcomes. When adding baseline covariates in Model 2, the estimated effect of attendance remains positive and statistically significant (10.236 points, p < 0.001), but the inclusion of these covariates increases the model’s explanatory power substantially, as reflected by the R-squared value of 0.736. The addition of school fixed effects in Model 3 marginally adjusts the estimated effect of attendance (10.208 points, p < 0.05) and further improves the model fit.
+ 
+The models suggest that while individual and school-level characteristics are important, attendance at the READ180 program itself is a key predictor of reading comprehension achievement among students. The results here differ from the raw comparison in B2 in that we didn’t examine statistical significance in B2. In addition, the results here provide an adjusted measure of the READ180 program's effect, accounting for individual characteristics and school-level influences. While B2's raw difference in scores does not account for these factors, the estimates provided here offer a more nuanced understanding of the relationship between READ180 attendance and reading outcomes. The statistical significance and control for confounding baseline variables in the regression make our model estimates more precise. 
+
 
 ```{r B4, include=TRUE}
 # TOT 
@@ -216,7 +225,7 @@ tot2 <- feols(sat10_compreh ~  factor(frpl) + factor(female) + dorf | read180_at
 tot3 <- feols(sat10_compreh ~ factor(frpl) + factor(female) + dorf | school | read180_attend ~ factor(treat), dat)
 
 modelsummary(list("Model 1" = tot1, "Model 2" = tot2,"Model 3" = tot3), 
-               title = "Table 3. Treatment on the Treated Estimates of Attending an After-school READ180 Intervention.",
+               title = "Table 4. Treatment on the Treated Estimates of Attending an After-school READ180 Intervention.",
              vcov = "robust",
                stars=c('*' = 0.05, '**' = 0.01, '***' = 0.001),
                coef_omit = "(Intercept)|as.factor",
@@ -230,6 +239,20 @@ modelsummary(list("Model 1" = tot1, "Model 2" = tot2,"Model 3" = tot3),
 ```
 
 **B4.** 
+Table 4 displays the Treatment on the Treated (TOT) estimate of READ180 Enterprise on the posttest reading comprehension measure. We used two-stage least squares to generate the parameter estimates and robust standard errors for estimating the impact of the reading intervention.The first model used only the instrument to predict attendance, the second model included baseline characteristics in addition to the instrument, and the third model included baseline characteristics and school fixed effects.
+
+First stage equation:
+
+Attendance<sub>i</sub> = π<sub>0</sub> + π<sub>1</sub> * Treatment<sub>i</sub> + π<sub>2</sub> * Female<sub>i</sub> + π<sub>3</sub> * FRPL<sub>i</sub> + π<sub>4</sub> * DORF<sub>i</sub> + π<sub>5</sub> * School<sub>i</sub> + δ<sub>i</sub> 
+
+Second stage equation:
+
+SAT<sub>10i</sub> = β<sub>0</sub> + β<sub>1</sub> * &#773;Attendance<sub>i</sub> + β<sub>2</sub> * Female<sub>i</sub> + β<sub>3</sub> * FRPL<sub>i</sub> + β<sub>4</sub> * DORF<sub>i</sub> + β<sub>5</sub> * School<sub>i</sub> + ε<sub>i</sub>
+
+In the first-stage model, there was a strong relationship between the assignment to the treatment and attendance of the READ180 program (F = ). We found that there was a positive impact of the READ180 program on student’s comprehension scores; on average, a 100 percent attendance in the seven-month program increased student scores by 10 points (p < 0.05) compared to not attending at all. 
+
+The key assumptions of an instrumental variable estimation strategy includes, 1) a strong correlation between the instrument and the endogenous predictor; 2) no correlation between instrument and error residuals in both the stages. We feel confident in meeting these assumptions. The high F-statistic in the first-stage equation highlights the strong correlation between the instrument and the predictor. Moreover, the instrument (assignment to treatment) was randomly assigned at the block level, which makes the treatment and control groups equal in expectation on their observed and unobserved characteristics. Given the findings of the balance check on observed characteristics between the two groups (Table 1), we are confident that the randomization process was successful and hence the estimates are unbiased. Finally, there is little reason to believe that random assignment to a treatment would affect a student's comprehension score (exclusion restriction), especially since randomization happened at the school-grade block level. 
+
 
 **B5.** 
 In our replication study, we found that implementation of the READ 180 after-school program improved reading comprehension on the SAT 10 assessment. In our first set of models, our ITT estimates indicated that assignment to the READ 180 program increased reading comprehension scores by 9 points. Our TOT estimate, implemented by IV strategy, was higher that the ITT estimate, attending 100% of the READ 180 sessions increased test scores by 10 points. Together, our ITT and TOT analyses indicate that the READ 180 intervention had a positive effect on the comprehension skills of at-risk upper-elementary students. Our findings are robust across baseline student characteristics and school fixed effects. These findings are in line with the original randomized control trial results presented by Kim and colleagues (2011). As a replication study, we are subject to the same sampling and generalizability limitations of the original study, including that we were unable to examine whether differences in prior levels of achievement may influence the results we found and cannot speak to the longitudinal effects or generalizability to wider populations of students that are not lower-performing 4th and 5th grade readers. Further, it’s important to note that our data did not include student racial characteristics, grade level information, or outcomes for spelling and vocabulary, thus our estimates may show some differences from those in the original study.
