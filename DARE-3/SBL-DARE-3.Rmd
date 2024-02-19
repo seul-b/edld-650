@@ -20,9 +20,9 @@ knitr::opts_chunk$set(echo = TRUE,
                       message = FALSE)
 library(pacman)
 
-p_load(tidyverse, fixest, modelsummary, kableExtra, psych)
+p_load(tidyverse, fixest, modelsummary, kableExtra, psych, here)
 
-dat <- read.csv("DARE-3/EDLD_650_DARE_3.csv")
+dat <- read.csv(here("DARE-3", "EDLD_650_DARE_3.csv"))
 ```
 
 ```{r graphing colors, include=FALSE}
@@ -232,4 +232,4 @@ modelsummary(list("Model 1" = tot1, "Model 2" = tot2,"Model 3" = tot3),
 **B4.** 
 
 **B5.** 
-In our replication study, we found that implementation of the READ 180 after-school program improved reading comprehension on the SAT 10 assessment. In our first stage models, our ITT estimates indicated that assignment to the READ 180 program was associated with about a 9-point increase in reading comprehension scores. Our IV estimates were consistent in the second-stage models. Together, our ITT and IV analyses indicate that students with full attendance in the program performed better than those students who did not attend the voluntary program. Our findings are robust across baseline student characteristics and school fixed effects. These findings are in line with the original randomized control trial results presented by Kim and colleagues (2011). As a replication study, we are subject to the same sampling and generalizability limitations of the original study, including that we were unable to examine whether differences in prior levels of achievement may influence the results we found and cannot speak to the longitudinal effects or generalizability to wider populations of students that are not lower-performing 4th and 5th grade readers. Further, it’s important to note that our data did not include student racial characteristics, grade level information, or outcomes for spelling and vocabulary, thus our estimates may show some differences from those in the original study.
+In our replication study, we found that implementation of the READ 180 after-school program improved reading comprehension on the SAT 10 assessment. In our first set of models, our ITT estimates indicated that assignment to the READ 180 program increased reading comprehension scores by 9 points. Our TOT estimate, implemented by IV strategy, was higher that the ITT estimate, attending 100% of the READ 180 sessions increased test scores by 10 points. Together, our ITT and TOT analyses indicate that the READ 180 intervention had a positive effect on the comprehension skills of at-risk upper-elementary students. Our findings are robust across baseline student characteristics and school fixed effects. These findings are in line with the original randomized control trial results presented by Kim and colleagues (2011). As a replication study, we are subject to the same sampling and generalizability limitations of the original study, including that we were unable to examine whether differences in prior levels of achievement may influence the results we found and cannot speak to the longitudinal effects or generalizability to wider populations of students that are not lower-performing 4th and 5th grade readers. Further, it’s important to note that our data did not include student racial characteristics, grade level information, or outcomes for spelling and vocabulary, thus our estimates may show some differences from those in the original study.
