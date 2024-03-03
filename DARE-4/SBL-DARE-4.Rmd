@@ -179,7 +179,7 @@ ggplot(dat, aes(p_score, fill = as.factor(elprgm))) +
   scale_fill_discrete(labels = c("No", "Yes"))
 ```
 
-#### B1. 
+#### B2. 
 
 ```{r B2}
 #### Step 1. Define coarsened bins of covariates within which to match
@@ -273,6 +273,105 @@ kable(chr_all,format = "html",
 ```
 
 #### B3.
+
+```{r B3 figure}
+#figure
+df_cem %>% 
+  mutate(elprgm = ifelse(elprgm == 0, "No", "Yes")) %>% 
+  ggplot(., aes(p_score, fill = as.factor(elprgm), color = as.factor(elprgm))) + 
+  geom_density(alpha=0.1) + 
+  theme_pander(base_size = 12) + 
+  xlab("Probability of EL Identification") +
+  labs(color = "Identified as EL",
+       fill = "Identified as EL")
+```
+
+```{r B3 table}
+#specify vars of interest for subsetting
+vars <- c("prelas", "ebrs", "kmath", "kread", "kexecfunc1", "kexecfunc2", "female", "hisp", "rural", "ses")
+#specify labs for rename
+labs <- c("PreLas (0-20)", "EBRS (0-20)", "Math assessment", "Reading assessment", "Executive function 1 (0-18)", "Executive function 2 (393-603)", "Female", "Latinx", "Rural", "Socioeconomic status")
+#group sums
+n <- data.frame(Variable = "N", m_0_post = 722, m_0_pre = 945, m_1_post = 900, m_1_pre = 1221)
+#join
+dat_join <- dat %>% 
+  select(elprgm, all_of(vars)) %>% 
+  mutate(time = "pre")
+match_join <- df_cem %>% 
+  select(elprgm, all_of(vars)) %>% 
+  mutate(time = "post")
+combined <- dat_join %>%
+  full_join(match_join, by = c("elprgm", vars, "time"))
+
+combined_table <- combined %>% 
+  group_by(elprgm, time) %>% 
+  dplyr::summarize(across(c(vars),
+           list(n = ~n(), m = ~round(mean(., na.rm = TRUE), 2)),
+           .names = "{.col}.{.fn}")) %>% 
+  pivot_longer(cols = -c(elprgm, time),
+               names_to = c("Variable",".value"),
+               names_pattern = "([^.]+)\\.(n|m)") %>% 
+  pivot_wider(names_from = c(elprgm, time),
+              values_from = c(n, m),
+              names_sep = "_") %>% 
+  select(-starts_with("n")) %>% 
+  bind_rows(n)
+
+## Add t and p values
+t_tests <- lapply(vars, function(var_name) {
+  t.test(reformulate("elprgm", response = var_name), data = combined)
+})
+stats <- data.frame(
+  Variable = vars,
+  p = sapply(t_tests, function(x) x$p.value))
+
+combined_table <- left_join(combined_table, stats, by = "Variable") %>% 
+  mutate(Variable = case_when(
+    Variable == "prelas" ~ "PreLas (0-20)",
+    Variable == "ebrs" ~ "EBRS (0-20)",
+    Variable == "kmath" ~ "Math assessment",
+    Variable == "kread" ~ "Reading assessment",
+    Variable == "kexecfunc1" ~ "Executive function 1 (0-18)",
+    Variable == "kexecfunc2" ~ "Executive function 2 (393-603)",
+    Variable == "female" ~ "Female",
+    Variable == "hisp" ~ "Latinx",
+    Variable == "ses" ~ "Socioeconomic status",
+    Variable == "rural" ~ "Rural",
+    Variable == "N" ~ "N"
+  ),
+  p_pre = case_when(
+    p < .001 ~ "***",
+    p > .05 ~ "ns",
+    is.na(p) ~ ""
+  ),
+  p_post = case_when(
+    p < .001 ~ "***",
+    p > .05 ~ "ns",
+    is.na(p) ~ ""
+  )) %>% 
+  select(Variable, m_0_pre, m_1_pre, p_pre, m_0_post, m_1_post, p_post)
+#table function
+nice_table <- function(data, separate.header = TRUE, title) {
+  blank_names <- rep("", ncol(data))
+  if(separate.header) {
+    kable(data, "html", caption = title, col.names = blank_names) %>% 
+      kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE) %>%
+      add_header_above(c(" " = 1, "Non-EL" = 1, "EL" = 1, "t-test" = 1, "Non-EL" = 1, "EL" = 1, "t-test" = 1)) %>% 
+      add_header_above(c(" " = 1, "Prematched Sample" = 3, "Postmatched Sample" = 3))
+  } else {
+    kable(data, "html") %>% 
+      kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+  }
+}
+#table
+nice_table(combined_table, 
+          separate.header = TRUE, 
+          title = "Table 3. Comparison of Characteristics Before and After Matching")
+#clean up
+rm(dat_join, match_join, n, combined, stats, t_tests, labs, vars, nice_table)
+```
+
+Figure X illustrates the region of common support in our matched sample. Although the overlapping area has increased in comparison to Figure X, the alignment of histograms is not as precise as we would hope. This indicates the need to test out different matching criteria to achieve a better result, which is further supported by a comparison of our key variables before and after matching in Table X. Ideally, post-matching, the mean differences for each variable between the EL and non-EL groups should be statistically insignificant. However, with the exception of gender, we observed that differences in group means continue to be statistically significant. To ensure a reliable estimate we need to conduct futher re-matching procedures until these group differences are resolved.
 
 ```{r B4 CEM Model}
 # CEM Models
