@@ -305,7 +305,7 @@ df_cem %>% group_by(elprgm, subclass) %>%
   ggplot(., aes(subclass, identification, fill = as.factor(elprgm))) + 
   geom_col(alpha=0.6, position = position_dodge()) + 
   theme_minimal() + 
-  labs(title = "Figure 3. Region of Common Support on Matched Sample",
+  labs(title = "Figure 3. Region of Common Support on Matched Sample (CEM)",
        fill = "Identified as an EL",
        x = "Subclassification by English Proficiency, Localities, Sex, and Racial Background") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
@@ -477,6 +477,16 @@ kable(chr_all,format = "html",
   ) |>
   pack_rows("Unmatched Sample", 1, 6) %>%
   pack_rows("Matched Sample", 7, 12)
+#Figure
+ggplot(df_psm, aes(p_score, fill = as.factor(elprgm))) + 
+  geom_density(alpha=0.4) + 
+  theme_minimal(base_size = 12) + 
+  labs(x = "Probability of EL Identification",
+       fill = "Identified as an EL",
+       title = "Figure 4. Region of Common Support on Matched Sample (PSM)",
+       y = "Density") +
+  scale_fill_discrete(labels = c("No", "Yes")) +
+  scale_x_continuous(limits = c(0,1))
 ```
 
 ```{r Table}
