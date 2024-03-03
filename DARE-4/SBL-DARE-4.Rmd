@@ -414,7 +414,7 @@ math_cem <- feols(tmathk ~ factor(elprgm) + prelas + ebrs + ses + rural + female
              weights = df_cem$weights, data = df_cem) 
 ```
 
-#### B4.
+#### B4 and B5
 
 ```{r B5 Models}
 # OLS
@@ -469,7 +469,7 @@ chr_matched <- psm_matches$sum.matched[c(1:3,5,7,9), 1:3] %>%
 chr_all <- rbind(chr_unmatched, chr_matched)
 
 kable(chr_all,format = "html",
-                  caption = "Table 3. Comparing Matching Variables in the Unmatched and Matched PSM Samples", row.names = FALSE) |>
+                  caption = "Table 5. Comparing Matching Variables in the Unmatched and Matched PSM Samples", row.names = FALSE) |>
   kable_styling(
     bootstrap_options = c("striped", "hover"),
     full_width = F,
@@ -490,22 +490,20 @@ modelsummary(models = list("CEM" = lang_cem,
              stars = TRUE,
              coef_map = c("factor(elprgm)1" = "EL Identification"),
               gof_omit= "Adj|Pseudo|Log|Within|AIC|BIC|Std|F|RMSE",
-             title = "Table 4. Effect of EL Identification on Teacher Perception on Skills in Kindergarten",
+             title = "Table 6. Effect of EL Identification on Teacher Perception on Skills in Kindergarten",
              notes = "We used the following variables for matching: Female, Hispanic/Latinx, School in rural area, SES, PreLAS and EBRS scores. We included all the matching variables as covariated in the models. Additional covariates were chronic absentiism, math, reading, and executive functioning scores in Kindergarten, and teacher's years of experience. Robust standard errors are reported.")  |>
      add_header_above(c(" " = 1, "Language Skills" = 3, "Math Skills" = 3))
    
 ```
 
 
-#### B5.
-
 To find the impact of EL Status on teacher perception, we estimated the following model using our matched sample,
 
 $$Perception_i = \gamma_0 + \gamma_1*EL_i + \gamma_2*X + \delta_i$$
 
-Here, the outcome is the standardized score on language and math skills for ith student in Kindergarten. EL is an indicator variable for whether a student attended EL program in the spring term of Kindergarten. X represents a vector of student-level covariates, including, PreLAS and EBRS scores, SES index, whether school was located in rural area, whether student was female or Hispanic/Latinx, student’s reading, math, and executive functioning scores in Kindergarten, a binary indicator of whether a student was chronically absent, and student’s teacher’s years of experience. \delta is the student-level error. Since we adjusted for variables we matched on, our estimates are ‘doubly robust’. Note that, in the paper, error is clustered at the school level. In this analysis, we use robust standard errors. Our results are presented in Table X (columns 2 and 5). We found that an EL identification doesn’t significantly affect a teacher's perception of student’s language or math skills in Kindergarten (p > 0.05). Our estimates are fairly small (0.03 SD) and of inconsistent direction (negative for English skills and positive for Math skills). This is different from the paper, where the authors found a non-significant effect yet slightly bigger effects, -0.11 SD for language skills and -0.88 SD for math skills. One possible reason is that more school-level covariates were used in the original analysis. 
+Here, the outcome is the standardized score on language and math skills for ith student in Kindergarten. EL is an indicator variable for whether a student attended EL program in the spring term of Kindergarten. X represents a vector of student-level covariates, including, PreLAS and EBRS scores, SES index, whether school was located in rural area, whether student was female or Hispanic/Latinx, student’s reading, math, and executive functioning scores in Kindergarten, a binary indicator of whether a student was chronically absent, and student’s teacher’s years of experience. \delta is the student-level error. Since we adjusted for variables we matched on, our estimates are ‘doubly robust’. Note that, in the paper, error is clustered at the school level. In this analysis, we use robust standard errors. Our results are presented in Table 6 (columns 1 and 4). We found that an EL identification doesn’t significantly affect a teacher's perception of student’s language or math skills in Kindergarten (p > 0.05). Our estimates are fairly small (0.03 SD) and of inconsistent direction (negative for English skills and positive for Math skills). This is different from the paper, where the authors found a non-significant effect yet slightly bigger effects, -0.11 SD for language skills and -0.88 SD for math skills. One possible reason is that more school-level covariates were used in the original analysis. 
 
-We also present sensitivity analysis estimates from Naive OLS strategy and Propensity Score Matching methods in the Table. We use the same covariates across all models. For Propensity Score Matching (PSM), we used the same matching variables as in CEM, and used the nearest neighbor matching algorithm. Table X and Figure Y show the comparison of unmatched and matched samples on key variables, and the region of common support. We see that any observable differences became non-existent in the matched sample.  However, one con of using the PSM technique is that the estimates are model-dependent and we lose transparency is the underlying matching process. Our PSM matched sample is smaller than the one reported in the paper, since the paper used more variables to match on, whereas we used the same matching variables as in CEM. 
+We also present sensitivity analysis estimates from Naive OLS strategy and Propensity Score Matching methods in the Table. We use the same covariates across all models. For Propensity Score Matching (PSM), we used the same matching variables as in CEM, and used the nearest neighbor matching algorithm. Table 5 and Figure Y show the comparison of unmatched and matched samples on key variables, and the region of common support. We see that any observable differences became non-existent in the matched sample.  However, one con of using the PSM technique is that the estimates are model-dependent and we lose transparency is the underlying matching process. Our PSM matched sample is smaller than the one reported in the paper, since the paper used more variables to match on, whereas we used the same matching variables as in CEM. 
 
 As expected, the Naive OLS estimates over-state the negative impact of EL identification on teacher perception, between 0.1-0.14 SD decrease on average, and is significant. In the estimates calculated using the PSM sample, we find a statistically significant (p < 0.05) though somewhat smaller effect compared to the OLS. For language skills, we estimate that EL identification decreases teacher perception scores by 0.09 SD, and for math skills, there is an estimated decrease of 0.1 SD. This is also in line with the original analysis, where the authors found significant estimates in the Naive OLS and PSM matched techniques. 
 
