@@ -35,9 +35,11 @@ dat <- read_dta(here("DARE-4", "dumont_umansky_ECLSK.dta"))
 ```
 
 #### A1.
-Table 1 shows a summary of teacher perceptions of student skills by English Learner (EL) program participation. For non-EL students, the perceived skills in language are at 0.061 and in math at 0.073, indicating slightly above neutral or average perception. For EL students, the perceived skills in language are at -0.392 and in math at -0.292, indicating a below-average perception. It is evident that teachers perceive EL students as having weaker language and mathematics skills compared to non-EL students. The negative values for EL students suggest a perception of below-average abilities, while the positive values for non-EL students suggest a perception of above-average abilities.
 
-However, this evidence should not be interpreted as a plausibly causal estimate of the effect of being classified as an EL student on teachers' perceptions because the data does not control for other variables that might influence teacher perceptions, nor does it establish a before-and-after comparison for the same students. 
+The table shows counts and means of standardized teacher perceptions of student skills by English Learner (EL) program participation. For non-EL students, the average perceived skills in language are at 0.061 and in math at 0.073, indicating slightly above neutral or average perception. For EL students, the average perceived skills in language are at -0.392 and in math at -0.292, indicating a below-average perception. Figure 1 describes the distribution of standardized teacher perception scores for the two student groups, which are both left-skewed and have similar variance. It is evident that teachers perceive EL students as having weaker language and mathematics skills compared to non-EL students. The negative values for EL students suggest a perception of below-average abilities, while the positive values for non-EL students suggest a perception of above-average abilities.
+
+However, this evidence should not be interpreted as a plausibly causal estimate of the effect of being classified as an EL student on teachers' perceptions because the data does not control for other variables that might influence teacher perceptions (such as student’s proficiency in the subject-matter), nor does it establish a before-and-after comparison for the same students. 
+
 
 ```{r A1}
 #summary(dat)
@@ -148,7 +150,8 @@ To estimate the probability that a student who lives in a home where a language 
 
 $$P(EL_i) = \beta_0 + \beta_1PreLAS_i + \beta_2 EBRS_i + \beta_3SES_i + \beta_4RURAL_i + \beta_5Female_i + \beta_6HISP_i + \epsilon_i$$
 
-Figure 2 shows our region of common support prior to matching. The amount of overlap we see in the histograms indicates that our predicted EL and non-EL groups have comparable distributions of key variables. Thus, we feel that our comparison across these groups is meaningful and will result in a reliable estimate once we have conducted matching procedures.
+Figure 2 shows our region of common support prior to matching. The amount of overlap we see in the histograms indicates that our EL and non-EL groups in the full sample have comparable distributions of the probability scores derived from the key matching variables. Thus, we would be successful in matching across variables without losing much sample size, and feel that our comparison across these groups will result in a reliable estimate.
+
 
 
 ```{r}
@@ -186,7 +189,11 @@ ggplot(dat, aes(p_score, fill = as.factor(elprgm))) +
 ```
 
 #### B2. 
-The identification strategy leverages natural variations in EL classification criteria across locales, creating a quasi-experimental design to assess how EL status influences teacher perceptions. The strategy assumes that these variations effectively randomize EL classification among students with similar English proficiency, allowing for a comparison that isolates the effect of EL status. The matching procedure used, coarsened exact matching, controls for English proficiency and other covariates, resulting in a refined sample where the only systematic difference between groups is EL status. This process excluded 124 non-EL and 179 EL students from the original sample, indicating that the matched sample more accurately represents comparable students across EL classifications.
+
+Multilingual students, at their first entry to school, are screened for EL classification based on their English proficiency scores. The identification strategy leverages natural variations in EL classification criteria across locales, creating a quasi-experimental design to assess how EL status influences teacher perceptions. The strategy assumes that these variations effectively randomize EL classification among students with similar English proficiency, allowing for a comparison that isolates the effect of EL status. In other words, our critical assumption is ‘selection on observables’, i.e., after we adjust a student's latent English proficiency, assignment to EL status is as good as random.
+
+The matching procedure used, coarsened exact matching, adjusts for English proficiency using two measures (PreLAS and EBRS), and other student-level covariates, including socio-economic status, gender, whether location of school is rural and whether student is Hispanic/Latinx. We matched exactly on the three dichotomous variables - Female, Hispanic/Latinx, and Rural, and used quintiles as cut-points for the remaining three continuous variables, similar to the approach adopted by Umansky and Dumont (2021), since such quintiles can reduce more than 90% of the bias. In the resulting sample, where the only random difference between groups is EL status, we excluded … non-EL and … EL students from the original sample, indicating that the matched sample more accurately represents comparable students across EL classifications​​.
+
 
 ```{r B2}
 #### Step 1. Define coarsened bins of covariates within which to match
@@ -299,14 +306,10 @@ df_cem %>% group_by(elprgm, subclass) %>%
   geom_col(alpha=0.6, position = position_dodge()) + 
   theme_minimal() + 
   labs(title = "Figure 3. Region of Common Support on Matched Sample",
-<<<<<<< Updated upstream
        fill = "Identified as an EL",
        x = "Subclassification by English Proficiency, Localities, Sex, and Racial Background") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
   scale_fill_discrete(labels = c("No", "Yes"))
-=======
-       fill = "Identified as an EL")+
-  scale_x_continuous(limits = c(0,1))
 ```
 
 ```{r B3 table, include = FALSE, eval = FALSE}
@@ -477,18 +480,18 @@ kable(chr_all,format = "html",
 ```
 
 ```{r Table}
-modelsummary(models = list("Naive OLS" = lang_sc1,
-                      "CEM" = lang_cem,
-                      "PSM" = lang_sc2,
-                      "Naive OLS" = math_sc1,
+modelsummary(models = list("CEM" = lang_cem,
+                      "SA1: Naive OLS" = lang_sc1,
+                      "SA2: PSM" = lang_sc2,
                       "CEM" = math_cem,
-                      "PSM" = math_sc2),
+                      "SA1: Naive OLS" = math_sc1,
+                      "SA2: PSM" = math_sc2),
              vcov = "robust",
              stars = TRUE,
              coef_map = c("factor(elprgm)1" = "EL Identification"),
               gof_omit= "Adj|Pseudo|Log|Within|AIC|BIC|Std|F|RMSE",
              title = "Table 4. Effect of EL Identification on Teacher Perception on Skills in Kindergarten",
-             notes = "Matched ... Covariates ... Standard Errors are IID")  |>
+             notes = "We used the following variables for matching: Female, Hispanic/Latinx, School in rural area, SES, PreLAS and EBRS scores. We included all the matching variables as covariated in the models. Additional covariates were chronic absentiism, math, reading, and executive functioning scores in Kindergarten, and teacher's years of experience. Robust standard errors are reported.")  |>
      add_header_above(c(" " = 1, "Language Skills" = 3, "Math Skills" = 3))
    
 ```
@@ -496,6 +499,15 @@ modelsummary(models = list("Naive OLS" = lang_sc1,
 
 #### B5.
 
+To find the impact of EL Status on teacher perception, we estimated the following model using our matched sample,
+
 $$Perception_i = \gamma_0 + \gamma_1*EL_i + \gamma_2*X + \delta_i$$
+
+Here, the outcome is the standardized score on language and math skills for ith student in Kindergarten. EL is an indicator variable for whether a student attended EL program in the spring term of Kindergarten. X represents a vector of student-level covariates, including, PreLAS and EBRS scores, SES index, whether school was located in rural area, whether student was female or Hispanic/Latinx, student’s reading, math, and executive functioning scores in Kindergarten, a binary indicator of whether a student was chronically absent, and student’s teacher’s years of experience. \delta is the student-level error. Since we adjusted for variables we matched on, our estimates are ‘doubly robust’. Note that, in the paper, error is clustered at the school level. In this analysis, we use robust standard errors. Our results are presented in Table X (columns 2 and 5). We found that an EL identification doesn’t significantly affect a teacher's perception of student’s language or math skills in Kindergarten (p > 0.05). Our estimates are fairly small (0.03 SD) and of inconsistent direction (negative for English skills and positive for Math skills). This is different from the paper, where the authors found a non-significant effect yet slightly bigger effects, -0.11 SD for language skills and -0.88 SD for math skills. One possible reason is that more school-level covariates were used in the original analysis. 
+
+We also present sensitivity analysis estimates from Naive OLS strategy and Propensity Score Matching methods in the Table. We use the same covariates across all models. For Propensity Score Matching (PSM), we used the same matching variables as in CEM, and used the nearest neighbor matching algorithm. Table X and Figure Y show the comparison of unmatched and matched samples on key variables, and the region of common support. We see that any observable differences became non-existent in the matched sample.  However, one con of using the PSM technique is that the estimates are model-dependent and we lose transparency is the underlying matching process. Our PSM matched sample is smaller than the one reported in the paper, since the paper used more variables to match on, whereas we used the same matching variables as in CEM. 
+
+As expected, the Naive OLS estimates over-state the negative impact of EL identification on teacher perception, between 0.1-0.14 SD decrease on average, and is significant. In the estimates calculated using the PSM sample, we find a statistically significant (p < 0.05) though somewhat smaller effect compared to the OLS. For language skills, we estimate that EL identification decreases teacher perception scores by 0.09 SD, and for math skills, there is an estimated decrease of 0.1 SD. This is also in line with the original analysis, where the authors found significant estimates in the Naive OLS and PSM matched techniques. 
+
 #### B6.
 Our replication of Umansky and Dumont’s (2021) study generated similar results to the original study. We found that EL identification has a negative impact on teacher perception of language skills in kindergarten. We found less consistent evidence for math skills, with a slightly positive nonsignificant effect when using coarsened-exact matching and a statistically significant negative effect when using propensity score matching. The differences across math and language skills may indicate differences in the magnitude of negative perception dependent upon academic domain. However, these differences in effect size and statistical significance also suggest our results are sensitive to the matching technique used, urging cautious interpretation and further research. 
