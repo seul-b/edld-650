@@ -468,7 +468,7 @@ modelsummary(models = list("Naive OLS" = lang_sc1,
              stars = TRUE,
              coef_map = c("factor(elprgm)1" = "EL Identification"),
               gof_omit= "Adj|Pseudo|Log|Within|AIC|BIC|Std|F|RMSE",
-             title = "Effect of EL Identification on Teacher Perception on Skills in Kindergarten",
+             title = "Table 4. Effect of EL Identification on Teacher Perception on Skills in Kindergarten",
              notes = "Matched ... Covariates ... Standard Errors are IID")  |>
      add_header_above(c(" " = 1, "Language Skills" = 3, "Math Skills" = 3))
    
