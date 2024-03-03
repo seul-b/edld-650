@@ -181,7 +181,8 @@ ggplot(dat, aes(p_score, fill = as.factor(elprgm))) +
        fill = "Identified as an EL",
        title = "Figure 2. Region of Common Support on Unmatched Sample",
        y = "Density") +
-  scale_fill_discrete(labels = c("No", "Yes"))
+  scale_fill_discrete(labels = c("No", "Yes"))+
+  scale_x_continuous(limits = c(0,1))
 ```
 
 #### B2. 
@@ -298,10 +299,103 @@ df_cem %>% group_by(elprgm, subclass) %>%
   geom_col(alpha=0.6, position = position_dodge()) + 
   theme_minimal() + 
   labs(title = "Figure 3. Region of Common Support on Matched Sample",
+<<<<<<< Updated upstream
        fill = "Identified as an EL",
        x = "Subclassification by English Proficiency, Localities, Sex, and Racial Background") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) +
   scale_fill_discrete(labels = c("No", "Yes"))
+=======
+       fill = "Identified as an EL")+
+  scale_x_continuous(limits = c(0,1))
+```
+
+```{r B3 table, include = FALSE, eval = FALSE}
+#specify vars of interest for subsetting
+vars <- c("prelas", "ebrs", "kmath", "kread", "kexecfunc1", "kexecfunc2", "female", "hisp", "rural", "ses")
+#specify labs for rename
+labs <- c("PreLas (0-20)", "EBRS (0-20)", "Math assessment", "Reading assessment", "Executive function 1 (0-18)", "Executive function 2 (393-603)", "Female", "Latinx", "Rural", "Socioeconomic status")
+#group sums
+n <- data.frame(Variable = "N", m_0_post = 722, m_0_pre = 945, m_1_post = 900, m_1_pre = 1221)
+#join
+dat_join <- dat %>% 
+  select(elprgm, all_of(vars)) %>% 
+  mutate(time = "pre")
+match_join <- df_cem %>% 
+  select(elprgm, all_of(vars)) %>% 
+  mutate(time = "post")
+combined <- dat_join %>%
+  full_join(match_join, by = c("elprgm", vars, "time"))
+#table data
+combined_table <- combined %>% 
+  mutate(female = as.numeric(female),
+         hisp = as.numeric(hisp),
+         rural = as.numeric(rural)) %>% 
+  group_by(elprgm, time) %>% 
+  dplyr::summarize(across(c(vars),
+           list(n = ~n(), m = ~round(mean(., na.rm = TRUE), 2)),
+           .names = "{.col}.{.fn}")) %>% 
+  pivot_longer(cols = -c(elprgm, time),
+               names_to = c("Variable",".value"),
+               names_pattern = "([^.]+)\\.(n|m)") %>% 
+  pivot_wider(names_from = c(elprgm, time),
+              values_from = c(n, m),
+              names_sep = "_") %>% 
+  select(-starts_with("n")) %>% 
+  bind_rows(n)
+
+## Add t and p values
+t_tests <- lapply(vars, function(var_name) {
+  t.test(reformulate("elprgm", response = var_name), data = combined_table)
+})
+stats <- data.frame(
+  Variable = vars,
+  p = sapply(t_tests, function(x) x$p.value))
+
+combined_table <- left_join(combined_table, stats, by = "Variable") %>% 
+  mutate(Variable = case_when(
+    Variable == "prelas" ~ "PreLas (0-20)",
+    Variable == "ebrs" ~ "EBRS (0-20)",
+    Variable == "kmath" ~ "Math assessment",
+    Variable == "kread" ~ "Reading assessment",
+    Variable == "kexecfunc1" ~ "Executive function 1 (0-18)",
+    Variable == "kexecfunc2" ~ "Executive function 2 (393-603)",
+    Variable == "female" ~ "Female",
+    Variable == "hisp" ~ "Latinx",
+    Variable == "ses" ~ "Socioeconomic status",
+    Variable == "rural" ~ "Rural",
+    Variable == "N" ~ "N"
+  ),
+  p_pre = case_when(
+    p < .001 ~ "***",
+    p > .05 ~ "ns",
+    is.na(p) ~ ""
+  ),
+  p_post = case_when(
+    p < .001 ~ "***",
+    p > .05 ~ "ns",
+    is.na(p) ~ ""
+  )) %>% 
+  select(Variable, m_0_pre, m_1_pre, p_pre, m_0_post, m_1_post, p_post)
+#table function
+nice_table <- function(data, separate.header = TRUE, title) {
+  blank_names <- rep("", ncol(data))
+  if(separate.header) {
+    kable(data, "html", caption = title, col.names = blank_names) %>% 
+      kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE) %>%
+      add_header_above(c(" " = 1, "Non-EL" = 1, "EL" = 1, "t-test" = 1, "Non-EL" = 1, "EL" = 1, "t-test" = 1)) %>% 
+      add_header_above(c(" " = 1, "Prematched Sample" = 3, "Postmatched Sample" = 3))
+  } else {
+    kable(data, "html") %>% 
+      kable_styling(bootstrap_options = c("striped", "hover"), full_width = FALSE)
+  }
+}
+#table
+nice_table(combined_table, 
+          separate.header = TRUE, 
+          title = "Table 3. Comparison of Characteristics Before and After Matching")
+#clean up
+rm(dat_join, match_join, n, combined, stats, t_tests, labs, vars, nice_table)
+>>>>>>> Stashed changes
 ```
 
 
@@ -389,6 +483,7 @@ modelsummary(models = list("Naive OLS" = lang_sc1,
                       "Naive OLS" = math_sc1,
                       "CEM" = math_cem,
                       "PSM" = math_sc2),
+             vcov = "robust",
              stars = TRUE,
              coef_map = c("factor(elprgm)1" = "EL Identification"),
               gof_omit= "Adj|Pseudo|Log|Within|AIC|BIC|Std|F|RMSE",
@@ -401,6 +496,6 @@ modelsummary(models = list("Naive OLS" = lang_sc1,
 
 #### B5.
 
-
+$$Perception_i = \gamma_0 + \gamma_1*EL_i + \gamma_2*X + \delta_i$$
 #### B6.
 Our replication of Umansky and Dumont’s (2021) study generated similar results to the original study. We found that EL identification has a negative impact on teacher perception of language skills in kindergarten. We found less consistent evidence for math skills, with a slightly positive nonsignificant effect when using coarsened-exact matching and a statistically significant negative effect when using propensity score matching. The differences across math and language skills may indicate differences in the magnitude of negative perception dependent upon academic domain. However, these differences in effect size and statistical significance also suggest our results are sensitive to the matching technique used, urging cautious interpretation and further research. 
