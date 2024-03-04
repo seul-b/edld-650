@@ -36,7 +36,7 @@ dat <- read_dta(here("DARE-4", "dumont_umansky_ECLSK.dta"))
 
 #### A1.
 
-The table shows counts and means of standardized teacher perceptions of student skills by English Learner (EL) program participation. For non-EL students, the average perceived skills in language are at 0.061 and in math at 0.073, indicating slightly above neutral or average perception. For EL students, the average perceived skills in language are at -0.392 and in math at -0.292, indicating a below-average perception. Figure 1 describes the distribution of standardized teacher perception scores for the two student groups, which are both left-skewed and have similar variance. It is evident that teachers perceive EL students as having weaker language and mathematics skills compared to non-EL students. The negative values for EL students suggest a perception of below-average abilities, while the positive values for non-EL students suggest a perception of above-average abilities.
+The table shows counts and means of standardized teacher perceptions of student skills by English Learner (EL) program participation. For non-EL students, the average perceived skills in language are at 0.061 and in math at 0.073, indicating slightly above neutral or average perception. For EL students, the average perceived skills in language are at -0.392 and in math at -0.292, indicating a below-average perception. Figure 1 describes the distribution of standardized teacher perception scores for the two student groups, which are both left-skewed and have similar variance. It is evident that teachers perception scores are different for EL and non-EL students. The negative values for EL students suggest a perception of below-average abilities, while the positive values for non-EL students suggest a perception of above-average abilities.
 
 However, this evidence should not be interpreted as a plausibly causal estimate of the effect of being classified as an EL student on teachers' perceptions because the data does not control for other variables that might influence teacher perceptions (such as student’s proficiency in the subject-matter).
 
@@ -81,6 +81,7 @@ dat %>%
 ```
 
 #### A2. 
+
 Table 2 indicates there may be differences between EL and non-EL learners in their family SES status, demographic (Hispanic/Latinx), attendance rate, school location (rural), executive functions, academic performance, and their teachers’ teaching experience, as well as English language proficiency. This observed heterogeneity across groups underscores the need for a sophisticated matching algorithm in our analytical strategy for Section B. In Section B, we aim to create balanced groups of EL and Non-EL students across these covariates, reducing confounding and improving the robustness of our causal inferences regarding the impact of EL status on academic outcomes. By ensuring comparable groups, CEM allows us to attribute differences in outcomes more confidently to EL status rather than to underlying demographic or socioeconomic factors.
 
 ```{r A2}
@@ -243,8 +244,15 @@ names(Unmatched_df)[2] <- "Unmatched"
 Table <- merge(All_df, Matched_df, by = "Var1")
 Table <- merge(Table, Unmatched_df, by = "Var1")
 names(Table)[1] <- "EL Status"
+Table$`EL Status` <- factor(Table$`EL Status`, labels = c("No", "Yes"))
 
-Table
+kable(Table, format = "html",
+                  caption = "Table 3. Sample Size after CEM Matching") |>
+  kable_styling(
+    bootstrap_options = c("striped", "hover"),
+    full_width = F,
+    position = "center"
+  ) 
 ```
 
 
@@ -271,7 +279,7 @@ chr_matched <- a$sum.matched[c(1:3,5,7,9), 1:3] %>%
 chr_all <- rbind(chr_unmatched, chr_matched)
 
 kable(chr_all,format = "html",
-                  caption = "Table 3. Comparing Matching Variables in the Unmatched and Matched CEM Samples", row.names = FALSE) |>
+                  caption = "Table 4. Comparing Matching Variables in the Unmatched and Matched CEM Samples", row.names = FALSE) |>
   kable_styling(
     bootstrap_options = c("striped", "hover"),
     full_width = F,
@@ -283,7 +291,7 @@ kable(chr_all,format = "html",
 
 #### B3.
 
-Figure 3 illustrates the region of common support in our matched sample. The overlapping area has increased considerably in comparison to Figure 2, indicating that our groups are more balanced. Ideally, post-matching, the mean differences for each variable between the EL and non-EL groups should be statistically insignificant, and we do indeed see that the mean differences go down after matching (see Table 3). We could choose to undergo further re-matching procedures to reduce group differences further, however, this may be unnecessary as both visual inspection and a comparison of mean differences indicate our groups are well-balanced.
+Figure 3 illustrates the region of common support in our matched sample. The overlapping area has increased considerably in comparison to Figure 2, indicating that our groups are more balanced. Ideally, post-matching, the mean differences for each variable between the EL and non-EL groups should be statistically insignificant, and we do indeed see that the mean differences go down after matching (see Table 4). We could choose to undergo further re-matching procedures to reduce group differences further, however, this may be unnecessary as both visual inspection and a comparison of mean differences indicate our groups are well-balanced.
 
 ```{r B3 figure}
 # #regenerate pscores
@@ -511,7 +519,7 @@ To find the impact of EL Status on teacher perception, we estimated the followin
 
 $$Perception_i = \gamma_0 + \gamma_1*EL_i + \gamma_2*X + \delta_i$$
 
-Here, the outcome is the standardized score on language and math skills for ith student in Kindergarten. EL is an indicator variable for whether a student attended EL program in the spring term of Kindergarten. X represents a vector of student-level covariates, including, PreLAS and EBRS scores, SES index, whether school was located in rural area, whether student was female or Hispanic/Latinx, student’s reading, math, and executive functioning scores in Kindergarten, a binary indicator of whether a student was chronically absent, and student’s teacher’s years of experience. \delta is the student-level error. Since we adjusted for variables we matched on, our estimates are ‘doubly robust’. Note that, in the paper, error is clustered at the school level. In this analysis, we use robust standard errors. Our results are presented in Table 6 (columns 1 and 4). We found that an EL identification doesn’t significantly affect a teacher's perception of student’s language or math skills in Kindergarten (p > 0.05). Our estimates are fairly small (0.03 SD) and of inconsistent direction (negative for English skills and positive for Math skills). This is different from the paper, where the authors found a non-significant effect yet slightly bigger effects, -0.11 SD for language skills and -0.88 SD for math skills. One possible reason is that more school-level covariates were used in the original analysis. 
+Here, the outcome is the standardized score on language and math skills for ith student in Kindergarten. EL is an indicator variable for whether a student attended EL program in the spring term of Kindergarten. X represents a vector of student-level covariates, including, PreLAS and EBRS scores, SES index, whether school was located in rural area, whether student was female or Hispanic/Latinx, student’s reading, math, and executive functioning scores in Kindergarten, a binary indicator of whether a student was chronically absent, and student’s teacher’s years of experience. $\delta$ is the student-level error. Since we adjusted for variables we matched on, our estimates are ‘doubly robust’. Note that, in the paper, error is clustered at the school level. In this analysis, we use robust standard errors. Our results are presented in Table 6 (columns 1 and 4). We found that an EL identification doesn’t significantly affect a teacher's perception of student’s language or math skills in Kindergarten (p > 0.05). Our estimates are fairly small (0.03 SD) and of inconsistent direction (negative for English skills and positive for Math skills). This is different from the paper, where the authors found a non-significant effect yet slightly bigger effects, -0.11 SD for language skills and -0.88 SD for math skills. One possible reason is that more school-level covariates were used in the original analysis. 
 
 We also present sensitivity analysis estimates from Naive OLS strategy and Propensity Score Matching methods in the Table. We use the same covariates across all models. For Propensity Score Matching (PSM), we used the same matching variables as in CEM, and used the nearest neighbor matching algorithm. Table 5 and Figure Y show the comparison of unmatched and matched samples on key variables, and the region of common support. We see that any observable differences became non-existent in the matched sample.  However, one con of using the PSM technique is that the estimates are model-dependent and we lose transparency is the underlying matching process. Our PSM matched sample is smaller than the one reported in the paper, since the paper used more variables to match on, whereas we used the same matching variables as in CEM. 
 
